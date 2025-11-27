@@ -17,3 +17,38 @@ packages = ["src/ai_prepare_commit_msg"]
 
 [project.scripts]
 prepare-commit = "ai_prepare_commit_msg:cli"
+
+[dependency-groups]
+fmt = [
+    "black",
+    "isort",
+    "pyink",
+    "ruff",
+]
+
+[tool.tox]
+env_list = ["3.12"]
+
+[tool.tox.env.fmt]
+description = "Format the codebase"
+dependency_groups = [
+    "fmt",
+]
+commands = [
+    [
+        "black",
+        ".",
+    ],
+    [
+        "isort",
+        ".",
+    ],
+    [
+        "pyink",
+        ".",
+    ],
+    [
+        "ruff",
+        "format",
+    ],
+]

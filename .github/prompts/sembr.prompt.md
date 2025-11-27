@@ -41,7 +41,7 @@ document are to be interpreted as described in RFC 2119.
 1. A semantic line break MAY occur before inline markup.
 1. A maximum line length of 80 characters is RECOMMENDED.
 1. A line MAY exceed the maximum line length if necessary, such as to
-    accommodate hyperlinks, code elements, or other markup.
+   accommodate hyperlinks, code elements, or other markup.
 
 ## Goals
 

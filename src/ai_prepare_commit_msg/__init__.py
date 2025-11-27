@@ -15,7 +15,6 @@
 
 """Module that provides a command-line for generating commit messages."""
 
-
 import logging
 import os
 
