@@ -14,6 +14,18 @@ cleanup:
 	sudo rm -rf node_modules
 	rm -rf .tox/ .venv/
 
+.PHONY: lint
+lint: cleanup
+	sudo -E $(DOCKER_CMD) run --rm -v $$(pwd):/tmp/lint \
+	-e RUN_LOCAL=true \
+	-e LINTER_RULES_PATH=/ \
+	-e EDITORCONFIG_FILE_NAME=.editorconfig-checker.json \
+	-e VALIDATE_BIOME_FORMAT=false \
+	-e PYTHON_ISORT_CONFIG_FILE=pyproject.toml \
+	-e PYTHON_RUFF_FORMAT_CONFIG_FILE=pyproject.toml \
+	-e DEFAULT_BRANCH=main \
+	ghcr.io/super-linter/super-linter
+
 .PHONY: fmt
 fmt: cleanup
 	command -v shfmt > /dev/null || curl -s "https://i.jpillora.com/mvdan/sh!!?as=shfmt" | bash

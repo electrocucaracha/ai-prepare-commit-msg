@@ -33,7 +33,7 @@ from typing import Sequence
 
 import click
 
-import ai_prepare_commit_msg.git as git
+from ai_prepare_commit_msg import git
 from ai_prepare_commit_msg.llm import get_commit_msg
 
 logger = logging.getLogger(__name__)

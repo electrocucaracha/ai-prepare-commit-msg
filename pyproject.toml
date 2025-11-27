@@ -32,6 +32,9 @@ fmt = [
 [tool.tox]
 env_list = ["3.12"]
 
+[tool.isort]
+profile = "black"
+
 [tool.tox.env.spell]
 description = "Check spelling in the codebase"
 dependency_groups = [
