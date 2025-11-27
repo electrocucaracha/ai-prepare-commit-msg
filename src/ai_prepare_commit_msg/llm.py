@@ -37,6 +37,35 @@ def _extract_choice_content(choice: Any) -> str:
     Supports objects with a ``message`` attribute (which itself may be an
     object or mapping), mapping choices with ``message.content`` or
     ``text``, and falls back to the string form of ``choice``.
+
+    Examples
+    --------
+    >>> # object with .message that has .content
+    >>> class MsgObj:
+    ...     def __init__(self, content):
+    ...         self.content = content
+    >>> class Choice:
+    ...     def __init__(self, message):
+    ...         self.message = message
+    >>> _extract_choice_content(Choice(MsgObj("hello")))
+    'hello'
+
+    >>> # dict-like message with nested content
+    >>> _extract_choice_content({'message': {'content': 'hi'}})
+    'hi'
+
+    >>> # dict-like fallback to text
+    >>> _extract_choice_content({'text': 'plain text'})
+    'plain text'
+
+    >>> # plain string fallback
+    >>> _extract_choice_content('just a string')
+    'just a string'
+
+    >>> # message attribute present but None -> empty string
+    >>> _extract_choice_content(Choice(None))
+    ''
+
     """
     # Prefer explicit message attribute when present
     if hasattr(choice, "message"):
@@ -61,12 +90,40 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM.
 
     Args:
-        model: LiteLLM model identifier.
+        model: `litellm` model identifier.
         diff_message: The staged git diff message.
         prompt_file: Path to the YAML prompt definition file.
 
     Returns:
-        A single string that contains the concatenated model outputs.
+        A single string that contains the concatenated textual outputs
+        produced from the model's choices.
+
+    Examples
+    --------
+    >>> # Demonstrate a simple, self-contained example by monkeypatching
+    >>> # the prompt loader and the litellm completion implementation.
+    >>> from ai_prepare_commit_msg import llm
+    >>> class DummyResp:
+    ...     def __init__(self, choices):
+    ...         self.choices = choices
+    >>> class ChoiceObj:
+    ...     def __init__(self, message):
+    ...         self.message = message
+    >>> class Msg:
+    ...     def __init__(self, content):
+    ...         self.content = content
+    >>> class DummyLite:
+    ...     def completion(self, messages, model):
+    ...         return DummyResp([ChoiceObj(Msg('generated'))])
+    >>> # backup and monkeypatch
+    >>> llm._load_prompt_messages_backup = llm._load_prompt_messages
+    >>> llm._load_prompt_messages = lambda p: [{'role': 'system', 'content': 'x'}]
+    >>> llm.litellm = DummyLite()
+    >>> llm.get_commit_msg('m', 'diff', 'prompt.yml')
+    'generated'
+    >>> # restore
+    >>> llm._load_prompt_messages = llm._load_prompt_messages_backup
+
     """
     messages: List[Dict[str, str]] = _load_prompt_messages(prompt_file)
     logger.info("Loaded %d prompt messages from %s", len(messages), prompt_file)

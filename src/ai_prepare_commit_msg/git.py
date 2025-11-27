@@ -35,6 +35,17 @@ class GitRepository:
 
         Args:
             path: Path to the repository work tree (defaults to current dir).
+
+        Examples
+        --------
+        >>> # constructing with a path that does not exist raises RuntimeError
+        >>> from ai_prepare_commit_msg.git import GitRepository
+        >>> try:
+        ...     GitRepository('/unlikely/path/that/does/not/exist')
+        ... except RuntimeError:
+        ...     print('error')
+        error
+
         """
         try:
             self.repo = Repo(path)

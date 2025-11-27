@@ -71,11 +71,7 @@ def cli(model: str, prompt_file: str, verbose: bool, files: Sequence[str]) -> No
     if os.environ.get("PRE_COMMIT") == "1" and files:
         logger.info("Running in pre-commit mode (files passed); continuing.")
 
-    try:
-        repo = git.GitRepository(os.getcwd())
-    except Exception as exc:  # pragma: no cover - guard for non-repo environments
-        logger.error("Not a git repository (cwd=%s): %s", os.getcwd(), exc)
-        raise
+    repo = git.GitRepository(os.getcwd())
 
     diff_message = repo.get_diff_message()
     logger.debug("Staged git diff message:\n%s", diff_message)

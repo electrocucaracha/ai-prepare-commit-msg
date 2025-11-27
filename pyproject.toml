@@ -19,6 +19,9 @@ packages = ["src/ai_prepare_commit_msg"]
 prepare-commit = "ai_prepare_commit_msg:cli"
 
 [dependency-groups]
+test = [
+    "pytest",
+]
 spell = [
     "pyspelling",
 ]
@@ -34,6 +37,22 @@ env_list = ["3.12"]
 
 [tool.isort]
 profile = "black"
+
+[tool.tox.env.test]
+description = "Run unit tests"
+dependency_groups = [
+    "test",
+]
+commands = [
+    [
+        "pytest",
+        "{posargs}"
+    ],
+]
+
+[tool.pytest.ini_options]
+testpaths = [ "src", "tests" ]
+addopts = "--doctest-modules"
 
 [tool.tox.env.spell]
 description = "Check spelling in the codebase"
