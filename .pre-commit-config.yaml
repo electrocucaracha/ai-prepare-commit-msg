@@ -20,6 +20,29 @@ repos:
     rev: v0.17.2
     hooks:
       - id: yamlfmt
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+  - repo: https://github.com/PyCQA/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        name: isort (python)
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.20.0
+    hooks:
+      - id: pyupgrade
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.13.0"
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^src/
+        types: [python]
+      - id: ruff-format
+        files: ^src/
+        types: [python]
   - repo: local
     hooks:
       - id: ai-prepare-commit-msg
