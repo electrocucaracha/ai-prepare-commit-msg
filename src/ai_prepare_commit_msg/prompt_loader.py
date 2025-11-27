@@ -13,19 +13,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module that load the prompt messages from a file."""
+"""Module that loads prompt messages from a YAML file.
+
+This module provides a small helper to read and validate the prompt
+messages structure expected by the CLI.
+"""
+
+from pathlib import Path
+from typing import Dict, List
 
 import yaml
 
 
-def load_prompt_messages(file_path: str) -> list[dict[str, str]]:
+def load_prompt_messages(file_path: str | Path) -> List[Dict[str, str]]:
     """Load prompt messages from a YAML file.
 
     Args:
-        file_path (str): Path to the YAML file containing prompt messages.
+        file_path: Path to the YAML file containing prompt messages.
+
     Returns:
-        list[dict[str, str]]: List of messages with roles and content.
+        A list of message dictionaries with `role` and `content` keys.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the YAML structure is not as expected.
     """
-    with open(file_path, "r", encoding="utf-8") as file:
-        data = yaml.safe_load(file)
-    return data.get("messages", [])
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Prompt file not found: {path}")
+
+    with path.open(encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)
+
+    if not isinstance(data, dict):
+        raise ValueError("Prompt file must contain a mapping at the top level")
+
+    messages = data.get("messages", [])
+    if messages is None:
+        return []
+    if not isinstance(messages, list):
+        raise ValueError("'messages' must be a list in the prompt file")
+
+    return [m for m in messages if isinstance(m, dict)]
