@@ -13,10 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module that provides a command-line for generating commit messages.
+"""Command-line entry for generating AI-assisted commit messages.
 
-This module exposes a `click` command `cli` that generates a commit message
-using an AI model and writes it to the repository's `COMMIT_EDITMSG` file.
+This module exposes a `click` command `cli` that:
+- loads prompt messages from a YAML file,
+- sends the combined prompt and staged git diff to an LLM, and
+- writes the generated commit message to the repository's `COMMIT_EDITMSG` file.
+
+When run under a pre-commit environment (the `PRE_COMMIT` env var is set
+to ``1`` and files are passed), the CLI logs that it's running in
+pre-commit mode. The presence of the `files` argument is only used for
+pre-commit detection; the command does not short-circuit or modify
+behavior beyond logging.
 """
 
 import logging
@@ -24,10 +32,9 @@ import os
 from typing import Sequence
 
 import click
-import litellm
-from git import Repo
 
-from ai_prepare_commit_msg.prompt_loader import load_prompt_messages
+import ai_prepare_commit_msg.git as git
+from ai_prepare_commit_msg.llm import get_commit_msg
 
 logger = logging.getLogger(__name__)
 
@@ -62,30 +69,18 @@ def cli(model: str, prompt_file: str, verbose: bool, files: Sequence[str]) -> No
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
 
     if os.environ.get("PRE_COMMIT") == "1" and files:
-        logger.info("Running in pre-commit mode. Exiting.")
-
-    messages = load_prompt_messages(prompt_file)
-    logger.info("Loaded %d prompt messages from %s.", len(messages), prompt_file)
+        logger.info("Running in pre-commit mode (files passed); continuing.")
 
     try:
-        repo = Repo(os.getcwd())
+        repo = git.GitRepository(os.getcwd())
     except Exception as exc:  # pragma: no cover - guard for non-repo environments
         logger.error("Not a git repository (cwd=%s): %s", os.getcwd(), exc)
         raise
 
-    git_cmd = repo.git
-    messages.append({"role": "user", "content": git_cmd.diff(cached=True)})
+    diff_message = repo.get_diff_message()
+    logger.debug("Staged git diff message:\n%s", diff_message)
 
-    response = litellm.completion(messages=messages, model=model)
-    logger.info("Generated commit message using AI.")
-
-    choices = getattr(response, "choices", []) or []
-    commit_msg = "\n".join(getattr(choice.message, "content", "") for choice in choices)
+    commit_msg = get_commit_msg(model, diff_message, prompt_file)
     logger.debug("Commit message:\n%s", commit_msg)
 
-    # Write to the repository's git directory to handle non-standard paths.
-    git_dir = getattr(repo, "git_dir", os.path.join(os.getcwd(), ".git"))
-    commit_editmsg = os.path.join(git_dir, "COMMIT_EDITMSG")
-    with open(commit_editmsg, "w", encoding="utf-8") as f:
-        f.write(commit_msg)
-    logger.info("Wrote commit message to %s.", commit_editmsg)
+    repo.write_commit_msg(commit_msg)
