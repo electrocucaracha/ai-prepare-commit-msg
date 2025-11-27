@@ -6,7 +6,7 @@
 # which accompanies this distribution, and is available at
 # http://www.apache.org/licenses/LICENSE-2.0
 ##############################################################################
-name: Create and publish Docker image
+name: Test AI Prepare Commit Msg
 # yamllint disable-line rule:truthy
 on:
   workflow_dispatch:

@@ -13,6 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for the ``ai_prepare_commit_msg.llm`` helpers.
+
+These tests validate content extraction from model choices and prompt
+file handling. The tests access module-internal helpers on purpose.
+"""
+
+# Tests access internal helpers and use small helper classes.
+# pylint: disable=protected-access,too-few-public-methods
 
 import pytest
 
@@ -20,11 +28,17 @@ from ai_prepare_commit_msg import llm
 
 
 def test__extract_choice_content_various_shapes():
+    """Various model choice shapes are normalized to text."""
+
     class MsgObj:
+        """Simple object holding a ``content`` attribute."""
+
         def __init__(self, content):
             self.content = content
 
     class ChoiceObj:
+        """Simple object holding a ``message`` attribute."""
+
         def __init__(self, message):
             self.message = message
 
@@ -45,24 +59,32 @@ def test__extract_choice_content_various_shapes():
 
 
 def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
+    """The public helper calls ``litellm.completion`` and joins choices."""
+
     # Replace prompt loader to keep this test self-contained
     monkeypatch.setattr(
         llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
     )
 
     class Msg:
+        """Message-like object with ``content``."""
+
         def __init__(self, content):
             self.content = content
 
     class ChoiceObj:
+        """Choice-like object with ``message`` attribute."""
+
         def __init__(self, message):
             self.message = message
 
     class Resp:
+        """Response-like object exposing a ``choices`` sequence."""
+
         def __init__(self, choices):
             self.choices = choices
 
-    def fake_completion(messages, model):
+    def fake_completion(_messages, _model):
         # return a mixture of object choice and dict/text choice
         return Resp([ChoiceObj(Msg("generated")), {"text": "more"}])
 
@@ -74,6 +96,8 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
 
 
 def test__load_prompt_messages_file_handling(tmp_path):
+    """Prompt YAML parsing and validation scenarios."""
+
     # non-existent file -> FileNotFoundError
     with pytest.raises(FileNotFoundError):
         llm._load_prompt_messages(tmp_path / "nope.yml")
@@ -87,7 +111,7 @@ def test__load_prompt_messages_file_handling(tmp_path):
     # no messages key -> empty list
     p2 = tmp_path / "empty.yml"
     p2.write_text("{}")
-    assert llm._load_prompt_messages(p2) == []
+    assert not llm._load_prompt_messages(p2)
 
     # messages not a list -> ValueError
     p3 = tmp_path / "notalist.yml"
