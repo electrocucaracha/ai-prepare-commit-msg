@@ -50,7 +50,7 @@ def test_get_diff_message_and_write_commit_msg(monkeypatch, tmp_path):
             """Store the preset diff text for later retrieval."""
             self._diff = diff_text
 
-        def diff(self, cached=False):
+        def diff(self, cached=False):  # pylint: disable=unused-argument
             """Return the preset diff text (simulates staged diff)."""
             return self._diff
 
@@ -87,7 +87,7 @@ def test_get_diff_message_empty_when_no_staged_changes(monkeypatch, tmp_path):
     class DummyGitEmpty:
         """Fake git returning an empty diff and a git directory."""  # pylint: disable=too-few-public-methods
 
-        def diff(self, cached=False):
+        def diff(self, cached=False):  # pylint: disable=unused-argument
             """Return an empty diff string (no staged changes)."""
             return ""
 
