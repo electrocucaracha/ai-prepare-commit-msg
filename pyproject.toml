@@ -19,6 +19,9 @@ packages = ["src/ai_prepare_commit_msg"]
 prepare-commit = "ai_prepare_commit_msg:cli"
 
 [dependency-groups]
+spell = [
+    "pyspelling",
+]
 fmt = [
     "black",
     "isort",
@@ -28,6 +31,19 @@ fmt = [
 
 [tool.tox]
 env_list = ["3.12"]
+
+[tool.tox.env.spell]
+description = "Check spelling in the codebase"
+dependency_groups = [
+    "spell",
+]
+commands = [
+    [
+        "pyspelling",
+        "-c",
+        ".spellcheck.yml",
+    ],
+]
 
 [tool.tox.env.fmt]
 description = "Format the codebase"

@@ -1,5 +1,5 @@
 .env
 **/__pycache__/
-
+dictionary.dic
 node_modules/
 package*.json
