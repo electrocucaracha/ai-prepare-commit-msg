@@ -21,7 +21,6 @@ and extract text from model responses. The public API is
 the model's choices.
 """
 
-import inspect
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Union
@@ -131,24 +130,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
 
     messages.append({"role": "user", "content": diff_message})
 
-    # Call litellm.completion in a way that's compatible with different
-    # library versions: some implementations expect (messages, model)
-    # while others expect (model, messages). Detect the callable's
-    # signature and call with the appropriate positional ordering.
-    try:
-        sig = inspect.signature(litellm.completion)
-        params = list(sig.parameters)
-        if params and params[0] in ("model", "model_name", "llm"):
-            response = litellm.completion(model, messages)
-        else:
-            response = litellm.completion(messages, model)
-    except (ValueError, TypeError):
-        # If signature inspection fails, try the common ordering first
-        try:
-            response = litellm.completion(messages, model)
-        except Exception:
-            response = litellm.completion(model, messages)
-
+    response = litellm.completion(model=model, messages=messages)
     logger.info("Sent prompt to model '%s'", model)
 
     choices = getattr(response, "choices", []) or []
