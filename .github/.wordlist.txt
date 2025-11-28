@@ -1,9 +1,13 @@
+ANTHROPIC
 bd
+blockquote
 boyter
+CLI
 COCOMO
 config
 eb
 electrocucaracha
+Entrypoint
 env
 fba
 Git's
@@ -14,6 +18,7 @@ laobi
 linter
 LiteLLM
 ol
+OpenAI
 opensource
 pre
 psf
@@ -23,5 +28,8 @@ scc
 sloc
 src
 svg
+TOGETHERAI
+XAI
 xyz
 yaml
+yml
