@@ -76,7 +76,9 @@ def cli(model: str, prompt_file: str, verbose: bool, files: Sequence[str]) -> No
     diff_message = repo.get_diff_message()
     logger.debug("Staged git diff message:\n%s", diff_message)
 
-    commit_msg = get_commit_msg(model, diff_message, prompt_file)
+    commit_msg = get_commit_msg(
+        model, diff_message, os.path.join(os.path.dirname(__file__), prompt_file)
+    )
     logger.debug("Commit message:\n%s", commit_msg)
 
     repo.write_commit_msg(commit_msg)
