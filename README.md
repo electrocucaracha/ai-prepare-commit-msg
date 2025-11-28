@@ -32,14 +32,16 @@ flow and uses LiteLLM to produce the text.
 Add a local hook to your `.pre-commit-config.yaml`:
 
 ```yaml
-- repo: local
-  hooks:
-    - id: ai-prepare-commit-msg
-      name: AI prepare commit message
-      entry: prepare-commit
-      language: python
-      stages:
-        - prepare-commit-msg
+default_install_hook_types:
+  - pre-commit
+  - prepare-commit-msg
+repos:
+  - repo: https://github.com/electrocucaracha/ai-prepare-commit-msg
+    rev: e1fda3d307234dd12d0eb9161007ab6bd89fba37
+    hooks:
+      - id: ai-prepare-commit
+        stages:
+          - prepare-commit-msg
 ```
 
 Alternatively, install the hook directly in your repository's
