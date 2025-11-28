@@ -9,7 +9,7 @@
 - id: ai-prepare-commit
   name: ai-prepare-commit
   description: Generate commit message using AI system prompt.
-  entry: ai-prepare-commit
+  entry: prepare-commit
   language: python
   always_run: true
   stages:
