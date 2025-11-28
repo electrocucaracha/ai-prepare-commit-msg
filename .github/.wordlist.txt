@@ -1,8 +1,11 @@
+bd
 boyter
 COCOMO
 config
+eb
 electrocucaracha
 env
+fba
 Git's
 href
 https
@@ -15,6 +18,7 @@ opensource
 pre
 psf
 repo
+repos
 scc
 sloc
 src
