@@ -12,24 +12,24 @@
 [![Scc Code Badge](https://sloc.xyz/github/electrocucaracha/ai-prepare-commit-msg?category=code)](https://github.com/boyter/scc/)
 [![Scc COCOMO Badge](https://sloc.xyz/github/electrocucaracha/ai-prepare-commit-msg?category=cocomo)](https://github.com/boyter/scc/)
 
-An AI-powered Git hook that generates concise,
-high-quality commit messages from your staged changes.
-Messages follow the Conventional Commits format and
-Google engineering best practices.
-The hook integrates with Git's `prepare-commit-msg`
-flow and uses LiteLLM to produce the text.
+AI-powered Git hook that generates concise, high-quality commit messages
+from your staged changes.
+Messages follow the Conventional Commits format and Google engineering
+best practices.
+The hook integrates with Git's `prepare-commit-msg` flow and uses LiteLLM
+to produce the text.
 
 ## Features
 
 - Generates commit messages from staged diffs.
 - Produces Conventional Commits-compliant messages.
-- Integrates with the `prepare-commit-msg` Git hook and
-  `pre-commit`.
-- Configurable system prompts to control tone and style.
+- Integrates with the `prepare-commit-msg` Git hook and `pre-commit`.
+- Configurable prompts to control tone and style.
 
-## Installation (recommended)
+## Installation
 
-Add a local hook to your `.pre-commit-config.yaml`:
+Add this repository to your `.pre-commit-config.yaml` to enable the
+`prepare-commit-msg` hook:
 
 ```yaml
 default_install_hook_types:
@@ -44,43 +44,73 @@ repos:
           - prepare-commit-msg
 ```
 
-Alternatively, install the hook directly in your repository's
+Or install the hook directly in your repository at
 `.git/hooks/prepare-commit-msg`.
 
 ## Configuration
 
 This tool requires a LiteLLM-compatible proxy.
-Provide configuration via environment variables (shell or
-`.env`):
+Configure it with environment variables.
+At a minimum you should set the model identifier and the proxy base URL.
+
+Common environment variables:
+
+- `LITELLM_PROXY_MODEL` — LiteLLM model identifier used to generate
+  messages.
+- `LITELLM_PROXY_API_BASE` — Base URL of the LiteLLM proxy service.
+- `LITELLM_PROXY_API_KEY` — API key for the proxy (if required).
+- Provider-specific keys (when using a provider directly via the proxy):
+  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `REPLICATE_API_KEY`,
+  `TOGETHERAI_API_KEY`, etc.
+
+Examples:
 
 ```bash
+# LiteLLM proxy
 export LITELLM_PROXY_MODEL=litellm_proxy/mistral
 export LITELLM_PROXY_API_BASE=https://your-litellm-proxy.example
-export LITELLM_PROXY_API_KEY=<your-api-key>
+export LITELLM_PROXY_API_KEY="your-proxy-api-key"
 ```
 
-- `LITELLM_PROXY_MODEL`: LiteLLM model identifier used to
-  generate messages.
-- `LITELLM_PROXY_API_BASE`: Base URL of the LiteLLM proxy
-  service.
-- `LITELLM_PROXY_API_KEY`: API key for the proxy (if
-  required).
+Azure example (when using Azure OpenAI endpoints):
 
-Ensure these variables are available in the environment
-where the hook runs (CI, local shell, or `pre-commit`
-environment).
+```bash
+export AZURE_API_BASE="https://your-azure-openai-endpoint/"
+export AZURE_API_VERSION="2023-05-15"
+export AZURE_API_TYPE="azure"
+```
+
+Custom OpenAI base URL (self-hosted / proxy):
+
+```bash
+export OPENAI_BASE_URL="https://your_host/v1"
+```
+
+> Note: The hook reads only environment variables.
+> Make sure the variables you need are exported in the environment where
+> the hook runs (your shell, `pre-commit`, or CI).
 
 ## Usage
 
-1. Stage your changes with `git add`.
-1. Create a commit (e.g., `git commit`).
-   The hook will run and suggest a commit message.
-1. Review and edit the suggested message before finalizing
-   the commit.
+1. Stage your changes: `git add`.
+1. Create a commit: `git commit` (the `prepare-commit-msg` hook will
+   run).
+1. A suggested commit message is inserted; review and edit it before
+   finalizing the commit.
 
 ## Prompts
 
-System prompts and templates are stored under the
-`prompts/` directory.
-Edit those files to customize tone, length, or
-formatting.
+System prompts and templates live in the `prompts/` directory.
+Edit those files to adjust tone, length, or formatting.
+
+## Configuration and CLI
+
+| Aspect                           | Details                                                                                                                                                              |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Model selection**              | Requires a LiteLLM model identifier via `--model` option or `LITELLM_PROXY_MODEL` environment variable                                                               |
+| **Prompt file**                  | Loads `prompts/default.yml` by default; use `--prompt-file` to specify a different YAML file                                                                         |
+| **Entrypoint / script**          | Package exposes `prepare-commit` console script; reference in `pre-commit` config or call directly: `prepare-commit --model "$LITELLM_PROXY_MODEL"`                  |
+| **litellm client configuration** | Requires `litellm` Python library; may need additional environment variables like `LITELLM_PROXY_API_BASE` and `LITELLM_PROXY_API_KEY` depending on proxy deployment |
+
+If you're using `pre-commit`, ensure the environment variables you need
+are available to the hook process (see your CI or local shell setup).
