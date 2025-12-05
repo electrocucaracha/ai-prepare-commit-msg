@@ -130,7 +130,9 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
 
     messages.append({"role": "user", "content": diff_message})
 
-    response = litellm.completion(model=model, messages=messages)
+    response = litellm.completion(
+        model=model, messages=messages, temperature=0.1, max_tokens=1024, num_ctx=16384
+    )
     logger.info("Sent prompt to model '%s'", model)
 
     choices = getattr(response, "choices", []) or []
