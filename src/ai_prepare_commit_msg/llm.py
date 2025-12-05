@@ -113,7 +113,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     ...     def __init__(self, content):
     ...         self.content = content
     >>> class DummyLite:
-    ...     def completion(self, messages, model):
+    ...     def completion(self, messages, model, temperature, max_tokens, num_ctx):
     ...         return DummyResp([ChoiceObj(Msg('generated'))])
     >>> # backup and monkeypatch
     >>> llm._load_prompt_messages_backup = llm._load_prompt_messages

@@ -84,7 +84,7 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
         def __init__(self, choices):
             self.choices = choices
 
-    def fake_completion(messages, model):  # pylint: disable=unused-argument
+    def fake_completion(messages, model, **kwargs):  # pylint: disable=unused-argument
         # return a mixture of object choice and dict/text choice
         return Resp([ChoiceObj(Msg("generated")), {"text": "more"}])
 
