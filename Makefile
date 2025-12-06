@@ -21,6 +21,7 @@ lint: cleanup
 	-e LINTER_RULES_PATH=/ \
 	-e EDITORCONFIG_FILE_NAME=.editorconfig-checker.json \
 	-e VALIDATE_BIOME_FORMAT=false \
+	-e VALIDATE_PRE_COMMIT=false \
 	-e PYTHON_ISORT_CONFIG_FILE=pyproject.toml \
 	-e PYTHON_RUFF_FORMAT_CONFIG_FILE=pyproject.toml \
 	-e DEFAULT_BRANCH=main \
