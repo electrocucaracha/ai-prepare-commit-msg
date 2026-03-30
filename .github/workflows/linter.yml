@@ -69,9 +69,12 @@ jobs:
       - name: Get diff
         id: git-diff
         if: failure()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            DIFF=$(git diff "origin/${{ github.base_ref }}...HEAD" --name-only | tr '\n' ' ')
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            DIFF=$(git diff "origin/${BASE_REF}...HEAD" --name-only | tr '\n' ' ')
           else
             DIFF=$(git diff HEAD~1 --name-only 2>/dev/null | tr '\n' ' ')
             DIFF=${DIFF:-}
