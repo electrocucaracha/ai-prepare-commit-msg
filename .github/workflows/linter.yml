@@ -51,10 +51,11 @@ jobs:
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Run super-linter validation
         id: linter-validation
-        uses: super-linter/super-linter@502f4fe48a81a392756e173e39a861f8c8efe056 # 8.3.0
+        uses: super-linter/super-linter@61abc07d755095a68f4987d1c2c3d1d64408f1f9 # 8.5.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LINTER_RULES_PATH: /
@@ -65,9 +66,20 @@ jobs:
           PYTHON_RUFF_FORMAT_CONFIG_FILE: pyproject.toml
           SAVE_SUPER_LINTER_OUTPUT: true
           DEFAULT_BRANCH: ${{ github.head_ref || github.ref_name }}
-      - uses: technote-space/get-diff-action@f27caffdd0fb9b13f4fc191c016bb4e0632844af # 6.1.2
+      - name: Get diff
         id: git-diff
         if: failure()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            DIFF=$(git diff "origin/${BASE_REF}...HEAD" --name-only | tr '\n' ' ')
+          else
+            DIFF=$(git diff HEAD~1 --name-only 2>/dev/null | tr '\n' ' ')
+            DIFF=${DIFF:-}
+          fi
+          echo "diff=${DIFF}" >> "$GITHUB_OUTPUT"
       - name: Get failed linter logs
         id: get-failed-linters
         if: failure()
