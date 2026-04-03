@@ -101,7 +101,7 @@ To use this application with GitHub Copilot or GPT-4 models, configure the `LITE
 
 ```bash
 # GitHub Copilot model
-export LITELLM_PROXY_MODEL=github_copilot
+export LITELLM_PROXY_MODEL=github_copilot/gpt-4
 
 # GPT-4 model
 export LITELLM_PROXY_MODEL=openai/gpt-4
@@ -129,6 +129,7 @@ Edit those files to adjust tone, length, or formatting.
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Model selection**              | Requires a LiteLLM model identifier via `--model` option or `LITELLM_PROXY_MODEL` environment variable                                                               |
 | **Prompt file**                  | Loads `prompts/default.yml` by default; use `--prompt-file` to specify a different YAML file                                                                         |
+| **Log level**                    | Controls logging verbosity via `--log-level` (choices: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`; default: `WARNING`)                                          |
 | **Entrypoint / script**          | Package exposes `prepare-commit` console script; reference in `pre-commit` config or call directly: `prepare-commit --model "$LITELLM_PROXY_MODEL"`                  |
 | **litellm client configuration** | Requires `litellm` Python library; may need additional environment variables like `LITELLM_PROXY_API_BASE` and `LITELLM_PROXY_API_KEY` depending on proxy deployment |
 

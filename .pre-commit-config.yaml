@@ -54,7 +54,7 @@ repos:
     hooks:
       - id: ai-prepare-commit
         name: generate commit message with AI
-        entry: prepare-commit --verbose
+        entry: prepare-commit --log-level DEBUG
         verbose: true
         log_file: /tmp/prepare-commit.log
         language: python

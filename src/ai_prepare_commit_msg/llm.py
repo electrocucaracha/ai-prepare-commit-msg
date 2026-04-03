@@ -90,7 +90,7 @@ def _extract_choice_content(choice: Any) -> str:
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
     messages: List[Dict[str, str]] = _load_prompt_messages(prompt_file)
-    logger.info("Loaded %d prompt messages from %s", len(messages), prompt_file)
+    logger.debug("Loaded %d prompt messages from %s", len(messages), prompt_file)
 
     messages.append({"role": "user", "content": diff_message})
 
@@ -102,7 +102,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
             max_tokens=1024,
             num_ctx=16384,
         )
-        logger.info("Sent prompt to model '%s'", model)
+        logger.debug("Sent prompt to model '%s'; awaiting response", model)
         return response
 
     result = ""
@@ -118,8 +118,11 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
             # Filter empty strings and join with a single newline
             result = "\n".join(filter(None, (s.strip() for s in contents))).strip()
             logger.debug("Generated commit message length=%d", len(result))
-    except (concurrent.futures.TimeoutError, Exception) as e:
-        logger.error("LLM call failed or timed out: %s", str(e))
+    except concurrent.futures.TimeoutError:
+        logger.error("LLM call timed out after %d seconds", timeout)
+        result = ""  # Fallback to empty commit message
+    except Exception as e:  # pylint: disable=broad-except
+        logger.error("LLM call failed: %s", e)
         result = ""  # Fallback to empty commit message
 
     return result

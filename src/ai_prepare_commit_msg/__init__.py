@@ -52,21 +52,31 @@ logger = logging.getLogger(__name__)
     default="prompts/default.yml",
 )
 @click.option(
-    "--verbose",
-    is_flag=True,
-    help="Enable verbose logging.",
+    "--log-level",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
+    default="WARNING",
+    show_default=True,
+    help="Set the logging level.",
 )
 @click.argument("files", nargs=-1, type=click.UNPROCESSED)
-def cli(model: str, prompt_file: str, verbose: bool, files: Sequence[str]) -> None:
+def cli(model: str, prompt_file: str, log_level: str, files: Sequence[str]) -> None:
     """Generate commit messages using AI assistance.
 
     Args:
         model: LiteLLM model identifier (required).
         prompt_file: Path to the YAML prompt definition file.
-        verbose: Enable debug logging when True.
+        log_level: Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
         files: Files passed by pre-commit (unused except to detect pre-commit).
     """
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper()),
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+
+    logger.debug("Using model: %s", model)
+    logger.debug("Using prompt file: %s", prompt_file)
 
     if os.environ.get("PRE_COMMIT") == "1" and files:
         logger.info("Running in pre-commit mode (files passed); continuing.")
@@ -74,19 +84,19 @@ def cli(model: str, prompt_file: str, verbose: bool, files: Sequence[str]) -> No
     repo = git.GitRepository(os.getcwd())
 
     diff_message = repo.get_diff_message()
-    logger.debug("Staged git diff message:\n%s", diff_message)
 
-    if len(diff_message) > int(
-        os.getenv("AI_PREPARE_COMMIT_DIFF_LEN_THRESHOLD", "250")
-    ):
-        logger.warn(
-            "Git diff exceeds the maximum allowed length; skipping AI commit message generation."
-        )
+    if not diff_message:
+        logger.debug("No staged changes detected; skipping commit message generation.")
         return
+
+    logger.debug("Staged diff length: %d chars", len(diff_message))
 
     commit_msg = get_commit_msg(
         model, diff_message, os.path.join(os.path.dirname(__file__), prompt_file)
     )
-    logger.debug("Commit message:\n%s", commit_msg)
+    logger.debug(
+        "Generated commit message (%d chars):\n%s", len(commit_msg), commit_msg
+    )
 
     repo.write_commit_msg(commit_msg)
+    logger.info("Commit message written successfully.")
