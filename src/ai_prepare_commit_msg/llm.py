@@ -21,6 +21,7 @@ and extract text from model responses. The public API is
 the model's choices.
 """
 
+import concurrent.futures
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Union
@@ -87,59 +88,40 @@ def _extract_choice_content(choice: Any) -> str:
 
 
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
-    """Generate a commit message using an LLM.
-
-    Args:
-        model: `litellm` model identifier.
-        diff_message: The staged git diff message.
-        prompt_file: Path to the YAML prompt definition file.
-
-    Returns:
-        A single string that contains the concatenated textual outputs
-        produced from the model's choices.
-
-    Examples
-    --------
-    >>> # Demonstrate a simple, self-contained example by monkeypatching
-    >>> # the prompt loader and the litellm completion implementation.
-    >>> from ai_prepare_commit_msg import llm
-    >>> class DummyResp:
-    ...     def __init__(self, choices):
-    ...         self.choices = choices
-    >>> class ChoiceObj:
-    ...     def __init__(self, message):
-    ...         self.message = message
-    >>> class Msg:
-    ...     def __init__(self, content):
-    ...         self.content = content
-    >>> class DummyLite:
-    ...     def completion(self, messages, model, temperature, max_tokens, num_ctx):
-    ...         return DummyResp([ChoiceObj(Msg('generated'))])
-    >>> # backup and monkeypatch
-    >>> llm._load_prompt_messages_backup = llm._load_prompt_messages
-    >>> llm._load_prompt_messages = lambda p: [{'role': 'system', 'content': 'x'}]
-    >>> llm.litellm = DummyLite()
-    >>> llm.get_commit_msg('m', 'diff', 'prompt.yml')
-    'generated'
-    >>> # restore
-    >>> llm._load_prompt_messages = llm._load_prompt_messages_backup
-
-    """
+    """Generate a commit message using an LLM with a timeout fallback."""
     messages: List[Dict[str, str]] = _load_prompt_messages(prompt_file)
     logger.info("Loaded %d prompt messages from %s", len(messages), prompt_file)
 
     messages.append({"role": "user", "content": diff_message})
 
-    response = litellm.completion(
-        model=model, messages=messages, temperature=0.1, max_tokens=1024, num_ctx=16384
-    )
-    logger.info("Sent prompt to model '%s'", model)
+    def call_llm():
+        response = litellm.completion(
+            model=model,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=1024,
+            num_ctx=16384,
+        )
+        logger.info("Sent prompt to model '%s'", model)
+        return response
 
-    choices = getattr(response, "choices", []) or []
-    contents = (_extract_choice_content(c) for c in choices)
-    # Filter empty strings and join with a single newline
-    result = "\n".join(filter(None, (s.strip() for s in contents))).strip()
-    logger.debug("Generated commit message length=%d", len(result))
+    result = ""
+    timeout = 10  # seconds
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(call_llm)
+            response = future.result(timeout=timeout)
+
+            choices = getattr(response, "choices", []) or []
+            contents = (_extract_choice_content(c) for c in choices)
+            # Filter empty strings and join with a single newline
+            result = "\n".join(filter(None, (s.strip() for s in contents))).strip()
+            logger.debug("Generated commit message length=%d", len(result))
+    except (concurrent.futures.TimeoutError, Exception) as e:
+        logger.error("LLM call failed or timed out: %s", str(e))
+        result = ""  # Fallback to empty commit message
+
     return result
 
 

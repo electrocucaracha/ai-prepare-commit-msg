@@ -76,6 +76,14 @@ def cli(model: str, prompt_file: str, verbose: bool, files: Sequence[str]) -> No
     diff_message = repo.get_diff_message()
     logger.debug("Staged git diff message:\n%s", diff_message)
 
+    if len(diff_message) > int(
+        os.getenv("AI_PREPARE_COMMIT_DIFF_LEN_THRESHOLD", "250")
+    ):
+        logger.warn(
+            "Git diff exceeds the maximum allowed length; skipping AI commit message generation."
+        )
+        return
+
     commit_msg = get_commit_msg(
         model, diff_message, os.path.join(os.path.dirname(__file__), prompt_file)
     )
