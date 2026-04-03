@@ -12,12 +12,14 @@
 [![Scc Code Badge](https://sloc.xyz/github/electrocucaracha/ai-prepare-commit-msg?category=code)](https://github.com/boyter/scc/)
 [![Scc COCOMO Badge](https://sloc.xyz/github/electrocucaracha/ai-prepare-commit-msg?category=cocomo)](https://github.com/boyter/scc/)
 
-AI-powered Git hook that generates concise, high-quality commit messages
-from your staged changes.
+AI-powered Git hook that generates concise, high-quality commit
+messages from your staged changes.
+
 Messages follow the Conventional Commits format and Google engineering
 best practices.
-The hook integrates with Git's `prepare-commit-msg` flow and uses LiteLLM
-to produce the text.
+
+The hook integrates with Git's `prepare-commit-msg` flow and uses
+LiteLLM to produce the text.
 
 ## Features
 
@@ -50,7 +52,9 @@ Or install the hook directly in your repository at
 ## Configuration
 
 This tool requires a LiteLLM-compatible proxy.
+
 Configure it with environment variables.
+
 At a minimum you should set the model identifier and the proxy base URL.
 
 Common environment variables:
@@ -87,8 +91,23 @@ export OPENAI_BASE_URL="https://your_host/v1"
 ```
 
 > Note: The hook reads only environment variables.
-> Make sure the variables you need are exported in the environment where
-> the hook runs (your shell, `pre-commit`, or CI).
+>
+> Make sure the variables you need are exported in the environment
+> where the hook runs (your shell, `pre-commit`, or CI).
+
+### Using with GitHub Copilot or GPT-4
+
+To use this application with GitHub Copilot or GPT-4 models, configure the `LITELLM_PROXY_MODEL` environment variable to point to the desired model. For example:
+
+```bash
+# GitHub Copilot model
+export LITELLM_PROXY_MODEL=github_copilot
+
+# GPT-4 model
+export LITELLM_PROXY_MODEL=openai/gpt-4
+```
+
+Ensure that the `LITELLM_PROXY_API_BASE` and any required API keys (e.g., `OPENAI_API_KEY`) are properly set to connect to the respective service. Refer to the Configuration section for more details.
 
 ## Usage
 
@@ -101,6 +120,7 @@ export OPENAI_BASE_URL="https://your_host/v1"
 ## Prompts
 
 System prompts and templates live in the `prompts/` directory.
+
 Edit those files to adjust tone, length, or formatting.
 
 ## Configuration and CLI
