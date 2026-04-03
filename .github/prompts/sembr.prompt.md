@@ -38,10 +38,6 @@ document are to be interpreted as described in RFC 2119.
    constraints.
 1. A semantic line break MUST NOT occur within a hyphenated word.
 1. A semantic line break MAY occur before and after a hyperlink.
-1. A semantic line break MAY occur before inline markup.
-1. A maximum line length of 80 characters is RECOMMENDED.
-1. A line MAY exceed the maximum line length if necessary, such as to
-   accommodate hyperlinks, code elements, or other markup.
 
 ## Goals
 

@@ -37,3 +37,7 @@ fmt: cleanup
 	npx prettier . --write
 	command -v uvx > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uvx tox -e fmt
+
+.PHONY: test
+test:
+	uvx tox -e test
