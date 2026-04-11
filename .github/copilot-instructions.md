@@ -29,7 +29,7 @@
 ## Code Review Checklist
 
 - Verify that all docstrings are up-to-date and accurately describe the functionality.
-- Confirm that `make lint` and `make tests` pass without errors.
+- Confirm that `make lint` and `make test` pass without errors.
 - Check for adherence to Pythonic best practices and idiomatic code.
 - Ensure that any changes to the `src/` directory are reflected in the corresponding tests in `tests/`.
 
