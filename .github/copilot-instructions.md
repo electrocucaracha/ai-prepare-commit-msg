@@ -1,9 +1,7 @@
 ---
-
 # GitHub Copilot Custom Instructions
 
 # Repository-specific instructions for Copilot to follow when generating code
-
 ---
 
 # General Guidelines
