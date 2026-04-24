@@ -4,9 +4,9 @@ version = "0.0.1"
 description = "AI assistant that generates git commit messages"
 dependencies = [
     "click",
-    "litellm>=1.83.7",
+    "litellm",
     "GitPython",
-    "aiohttp>=3.13.4",
+    "aiohttp",
 ]
 
 [build-system]
@@ -95,7 +95,3 @@ commands = [
     ],
 ]
 
-[tool.uv]
-override-dependencies = [
-    "python-dotenv>=1.2.2",
-]
