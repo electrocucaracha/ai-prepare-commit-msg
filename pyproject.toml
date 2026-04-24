@@ -6,6 +6,7 @@ dependencies = [
     "click",
     "litellm>=1.83.7",
     "GitPython",
+    "aiohttp>=3.13.4",
 ]
 
 [build-system]
@@ -92,4 +93,9 @@ commands = [
         "ruff",
         "format",
     ],
+]
+
+[tool.uv]
+override-dependencies = [
+    "python-dotenv>=1.2.2",
 ]
