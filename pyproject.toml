@@ -5,7 +5,8 @@ description = "AI assistant that generates git commit messages"
 dependencies = [
     "click",
     "litellm",
-    "GitPython"
+    "GitPython",
+    "aiohttp",
 ]
 
 [build-system]
@@ -93,3 +94,4 @@ commands = [
         "format",
     ],
 ]
+
