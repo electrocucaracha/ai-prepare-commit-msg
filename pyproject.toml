@@ -4,8 +4,8 @@ version = "0.0.1"
 description = "AI assistant that generates git commit messages"
 dependencies = [
     "click",
-    "litellm",
-    "GitPython"
+    "litellm>=1.83.7",
+    "GitPython",
 ]
 
 [build-system]
