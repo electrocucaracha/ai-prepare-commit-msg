@@ -11,6 +11,8 @@ Entrypoint
 env
 fba
 Git's
+gpt
+GPT
 href
 https
 img
