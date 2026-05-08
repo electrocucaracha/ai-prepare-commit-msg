@@ -30,6 +30,7 @@ jobs:
           go-version: "^1.25"
       - uses: technote-space/create-pr-action@91114507cf92349bec0a9a501c2edf1635427bc5 # 2.1.4
         with:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }} # zizmor: ignore[secrets-outside-env]
           EXECUTE_COMMANDS: |
             ./ci/update_versions.sh
           COMMIT_MESSAGE: "Upgrade versions files"
