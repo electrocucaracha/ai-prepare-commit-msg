@@ -22,15 +22,20 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         with:
           # Fine-grained PAT with contents:write and workflows:write scopes
-          token: ${{ secrets.WORKFLOW_TOKEN }}
+          token: ${{ env.WORKFLOW_TOKEN }}
           persist-credentials: true
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # 6.4.0
         with:
           go-version: "^1.25"
       - uses: technote-space/create-pr-action@91114507cf92349bec0a9a501c2edf1635427bc5 # 2.1.4
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         with:
+          GITHUB_TOKEN: ${{ env.WORKFLOW_TOKEN }}
           EXECUTE_COMMANDS: |
             ./ci/update_versions.sh
           COMMIT_MESSAGE: "Upgrade versions files"
