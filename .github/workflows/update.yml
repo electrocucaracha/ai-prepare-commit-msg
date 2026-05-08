@@ -20,10 +20,10 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    env:
-      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         with:
           # Fine-grained PAT with contents:write and workflows:write scopes
           token: ${{ env.WORKFLOW_TOKEN }}
@@ -32,6 +32,8 @@ jobs:
         with:
           go-version: "^1.25"
       - uses: technote-space/create-pr-action@91114507cf92349bec0a9a501c2edf1635427bc5 # 2.1.4
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         with:
           GITHUB_TOKEN: ${{ env.WORKFLOW_TOKEN }}
           EXECUTE_COMMANDS: |
