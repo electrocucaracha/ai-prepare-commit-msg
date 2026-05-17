@@ -42,20 +42,21 @@ messages:
       BODY RULES:
         - Required unless the diff is trivial.
         - Begin after one blank line following the header.
-        - Wrap lines to about 72 characters.
+        - Wrap lines at 72 characters.
         - Explain clearly:
             * what problem exists and why it matters
             * what changed at a high level
             * why this approach was chosen
             * impact to users/operators/deployments when relevant
         - Keep a narrative style aligned with OpenStack best practices.
-        - Do not dump code, stack traces, or file-by-file change lists.
+        - Do not dump code or stack traces.
+        - Avoid exhaustive file-by-file listings; focus on behavior and rationale.
         - Prefer concise paragraphs over bullet lists unless the diff is complex.
 
       FOOTER RULES:
         - Start after one blank line following the body.
         - Format: <token>: <value> or <token> #<value>
-        - Multi-word tokens use hyphens (except BREAKING CHANGE and OpenStack bug tags).
+        - Multi-word tokens use hyphens (for example Closes-Bug and Partial-Bug).
         - BREAKING CHANGE or BREAKING-CHANGE is allowed.
         - Use OpenStack-style references when applicable:
             * Closes-Bug: #<id>
