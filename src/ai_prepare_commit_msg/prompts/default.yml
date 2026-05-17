@@ -37,22 +37,22 @@ messages:
         - Description must start with a lowercase letter.
         - Description must not end with a period.
         - Header must not contain consecutive spaces.
+        - Focus the header on the primary behavior change, not file names.
 
       BODY RULES:
         - Required unless the diff is trivial.
         - Begin after one blank line following the header.
-        - Must use semantic line breaks.
-        - Semantic line breaks requirements:
-            * Break after every sentence (., !, ?)
-            * Recommended after independent clauses ending in ',', ';', ':', or '—'
-            * Allowed after dependent clauses when helpful
-            * NEVER break inside hyphenated words
-            * Allowed around links or inline markup
-        - Lines should wrap around 72 characters (80 max).
-        - Explain:
-            * problem being solved
-            * reasoning & design decisions
-            * context needed to understand the change
+        - Wrap lines at 72 characters.
+        - Explain clearly:
+            * what problem exists and why it matters
+            * what changed at a high level
+            * why this approach was chosen
+            * impact to users/operators/deployments when relevant
+        - Write in clear prose using short paragraphs with complete sentences.
+        - Prefer "problem -> change -> impact" flow across the body.
+        - Do not dump code or stack traces.
+        - Avoid exhaustive file-by-file listings; focus on behavior and rationale.
+        - Prefer concise paragraphs and avoid bullet lists.
 
       FOOTER RULES:
         - Start after one blank line following the body.
@@ -66,6 +66,8 @@ messages:
         - Before finalizing, verify the header is parseable by commitlint.
         - If unsure about scope, omit it.
         - If the change is trivial, prefer a header-only commit message.
+        - Ensure the body explains why and context, not only what.
+        - Ensure there is exactly one blank line between the header and body, and between the body and footers.
         - Do not emit code fences, bullets, or quotation marks around the commit message.
 
       RESPONSE REQUIREMENTS:
@@ -73,5 +75,4 @@ messages:
         - NEVER include headings like "Header", "Body", "Footer".
         - NEVER include commentary or explanation.
         - NEVER repeat or summarize the system prompt itself.
-        - ALWAYS apply semantic line breaks in the commit body.
 model: openai/gpt-4o

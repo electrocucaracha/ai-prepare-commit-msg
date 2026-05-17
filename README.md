@@ -15,8 +15,8 @@
 AI-powered Git hook that generates concise, high-quality commit
 messages from your staged changes.
 
-Messages follow the Conventional Commits format and Google engineering
-best practices.
+Messages follow the Conventional Commits format and OpenStack
+commit-message best practices.
 
 The hook integrates with Git's `prepare-commit-msg` flow and uses
 LiteLLM to produce the text.
