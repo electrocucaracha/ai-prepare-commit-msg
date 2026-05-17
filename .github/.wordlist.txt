@@ -20,6 +20,7 @@ linter
 LiteLLM
 ol
 OpenAI
+OpenStack
 opensource
 pre
 psf
