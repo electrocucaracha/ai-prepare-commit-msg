@@ -37,28 +37,32 @@ messages:
         - Description must start with a lowercase letter.
         - Description must not end with a period.
         - Header must not contain consecutive spaces.
+        - Focus the header on the primary behavior change, not file names.
 
       BODY RULES:
         - Required unless the diff is trivial.
         - Begin after one blank line following the header.
-        - Must use semantic line breaks.
-        - Semantic line breaks requirements:
-            * Break after every sentence (., !, ?)
-            * Recommended after independent clauses ending in ',', ';', ':', or '—'
-            * Allowed after dependent clauses when helpful
-            * NEVER break inside hyphenated words
-            * Allowed around links or inline markup
-        - Lines should wrap around 72 characters (80 max).
-        - Explain:
-            * problem being solved
-            * reasoning & design decisions
-            * context needed to understand the change
+        - Wrap lines to about 72 characters.
+        - Explain clearly:
+            * what problem exists and why it matters
+            * what changed at a high level
+            * why this approach was chosen
+            * impact to users/operators/deployments when relevant
+        - Keep a narrative style aligned with OpenStack best practices.
+        - Do not dump code, stack traces, or file-by-file change lists.
+        - Prefer concise paragraphs over bullet lists unless the diff is complex.
 
       FOOTER RULES:
         - Start after one blank line following the body.
         - Format: <token>: <value> or <token> #<value>
-        - Multi-word tokens use hyphens (except BREAKING CHANGE).
+        - Multi-word tokens use hyphens (except BREAKING CHANGE and OpenStack bug tags).
         - BREAKING CHANGE or BREAKING-CHANGE is allowed.
+        - Use OpenStack-style references when applicable:
+            * Closes-Bug: #<id>
+            * Partial-Bug: #<id>
+            * Related-Bug: #<id>
+            * Implements: blueprint <name>
+            * Change-Id: I<40-hex> (only when already known)
         - Values may span multiple lines.
         - Footer tokens should be valid Conventional Commits / commitlint-style tokens.
 
@@ -66,6 +70,8 @@ messages:
         - Before finalizing, verify the header is parseable by commitlint.
         - If unsure about scope, omit it.
         - If the change is trivial, prefer a header-only commit message.
+        - Ensure the body explains why and context, not only what.
+        - Ensure there is exactly one blank line between header/body and body/footers.
         - Do not emit code fences, bullets, or quotation marks around the commit message.
 
       RESPONSE REQUIREMENTS:
@@ -73,5 +79,4 @@ messages:
         - NEVER include headings like "Header", "Body", "Footer".
         - NEVER include commentary or explanation.
         - NEVER repeat or summarize the system prompt itself.
-        - ALWAYS apply semantic line breaks in the commit body.
 model: openai/gpt-4o
