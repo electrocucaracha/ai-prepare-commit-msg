@@ -30,6 +30,13 @@ messages:
         - Types: feat, fix, refactor, docs, test, chore, build, ci, perf.
         - Scope is optional and must be a short noun.
         - Include "!" for breaking changes.
+        - MUST follow Conventional Commits syntax accepted by commitlint.
+        - Use lowercase type and lowercase scope when a scope is present.
+        - Do not leave empty scope parentheses.
+        - Use exactly one colon followed by one space between header prefix and description.
+        - Description must start with a lowercase letter.
+        - Description must not end with a period.
+        - Header must not contain consecutive spaces.
 
       BODY RULES:
         - Required unless the diff is trivial.
@@ -53,6 +60,13 @@ messages:
         - Multi-word tokens use hyphens (except BREAKING CHANGE).
         - BREAKING CHANGE or BREAKING-CHANGE is allowed.
         - Values may span multiple lines.
+        - Footer tokens should be valid Conventional Commits / commitlint-style tokens.
+
+      VALIDATION CHECKLIST:
+        - Before finalizing, verify the header is parseable by commitlint.
+        - If unsure about scope, omit it.
+        - If the change is trivial, prefer a header-only commit message.
+        - Do not emit code fences, bullets, or quotation marks around the commit message.
 
       RESPONSE REQUIREMENTS:
         - Output ONLY the commit message.
