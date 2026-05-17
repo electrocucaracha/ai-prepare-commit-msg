@@ -57,14 +57,14 @@ messages:
       FOOTER RULES:
         - Start after one blank line following the body.
         - Format: <token>: <value> or <token> #<value>
-        - Multi-word tokens use hyphens (such as Closes-Bug and Partial-Bug).
+        - Multi-word tokens use hyphens (e.g., Closes-Bug, Partial-Bug, Related-Bug).
         - BREAKING CHANGE or BREAKING-CHANGE is allowed.
         - Use OpenStack-style references when applicable:
             * Closes-Bug: #<id>
             * Partial-Bug: #<id>
             * Related-Bug: #<id>
             * Implements: blueprint <name>
-            * Change-Id: I followed by 40 hexadecimal characters (only when already known)
+            * Change-Id: the letter I immediately followed by 40 hexadecimal characters (only when already known)
         - Values may span multiple lines.
         - Footer tokens should be valid Conventional Commits / commitlint-style tokens.
 
