@@ -56,14 +56,14 @@ messages:
       FOOTER RULES:
         - Start after one blank line following the body.
         - Format: <token>: <value> or <token> #<value>
-        - Multi-word tokens use hyphens (for example Closes-Bug and Partial-Bug).
+        - Multi-word tokens use hyphens (such as Closes-Bug and Partial-Bug).
         - BREAKING CHANGE or BREAKING-CHANGE is allowed.
         - Use OpenStack-style references when applicable:
             * Closes-Bug: #<id>
             * Partial-Bug: #<id>
             * Related-Bug: #<id>
             * Implements: blueprint <name>
-            * Change-Id: I<40-hex> (only when already known)
+            * Change-Id: I followed by 40 hexadecimal characters (only when already known)
         - Values may span multiple lines.
         - Footer tokens should be valid Conventional Commits / commitlint-style tokens.
 
@@ -72,7 +72,7 @@ messages:
         - If unsure about scope, omit it.
         - If the change is trivial, prefer a header-only commit message.
         - Ensure the body explains why and context, not only what.
-        - Ensure there is exactly one blank line between header/body and body/footers.
+        - Ensure there is exactly one blank line between the header and body, and between the body and footers.
         - Do not emit code fences, bullets, or quotation marks around the commit message.
 
       RESPONSE REQUIREMENTS:
