@@ -59,12 +59,6 @@ messages:
         - Format: <token>: <value> or <token> #<value>
         - Multi-word tokens use hyphens (except BREAKING CHANGE).
         - BREAKING CHANGE or BREAKING-CHANGE is allowed.
-        - Use OpenStack-style references when applicable:
-            * Closes-Bug: #<id>
-            * Partial-Bug: #<id>
-            * Related-Bug: #<id>
-            * Implements: blueprint <name>
-            * Change-Id: I<40-char-hex-string> (only when already known)
         - Values may span multiple lines.
         - Footer tokens should be valid Conventional Commits / commitlint-style tokens.
 
