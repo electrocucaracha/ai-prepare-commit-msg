@@ -52,7 +52,7 @@ messages:
         - Prefer "problem -> change -> impact" flow across the body.
         - Do not dump code or stack traces.
         - Avoid exhaustive file-by-file listings; focus on behavior and rationale.
-        - Prefer concise paragraphs over bullet lists unless the diff is complex.
+        - Prefer concise paragraphs and avoid bullet lists.
 
       FOOTER RULES:
         - Start after one blank line following the body.
