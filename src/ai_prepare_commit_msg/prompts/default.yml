@@ -48,7 +48,8 @@ messages:
             * what changed at a high level
             * why this approach was chosen
             * impact to users/operators/deployments when relevant
-        - Keep a narrative style aligned with OpenStack best practices.
+        - Write in clear prose using short paragraphs with complete sentences.
+        - Prefer "problem -> change -> impact" flow across the body.
         - Do not dump code or stack traces.
         - Avoid exhaustive file-by-file listings; focus on behavior and rationale.
         - Prefer concise paragraphs over bullet lists unless the diff is complex.
