@@ -64,7 +64,7 @@ messages:
             * Partial-Bug: #<id>
             * Related-Bug: #<id>
             * Implements: blueprint <name>
-            * Change-Id: Gerrit identifier starting with capital I plus exactly 40 hexadecimal characters (only when already known)
+            * Change-Id: Gerrit identifier with a capital I followed by 40 hexadecimal characters (41 total chars; only when already known)
         - Values may span multiple lines.
         - Footer tokens should be valid Conventional Commits / commitlint-style tokens.
 
