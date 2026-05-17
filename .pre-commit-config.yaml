@@ -43,12 +43,10 @@ repos:
       - id: ruff-format
         files: ^src/
         types: [python]
-  - repo: https://github.com/markdownlint/markdownlint
-    rev: v0.15.0
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.44.0
     hooks:
       - id: markdownlint
-        # MD013: line length
-        args: ["-r", "~MD013"]
         files: \.(md|mdown|markdown)$
   - repo: local
     hooks:
