@@ -2,9 +2,11 @@ ANTHROPIC
 bd
 blockquote
 boyter
+chmod
 CLI
 COCOMO
 config
+cp
 eb
 electrocucaracha
 Entrypoint
@@ -16,12 +18,13 @@ href
 https
 img
 laobi
+Lifecycle
 linter
 LiteLLM
 ol
 OpenAI
-OpenStack
 opensource
+OpenStack
 pre
 psf
 repo
@@ -30,6 +33,7 @@ scc
 sloc
 src
 svg
+symlink
 TOGETHERAI
 XAI
 xyz
