@@ -27,9 +27,3 @@ and uses LiteLLM to produce the text.
 - Produces Conventional Commits-compliant messages.
 - Integrates with the `prepare-commit-msg` Git hook and `pre-commit`.
 - Configurable prompts to control tone and style.
-
-## Documentation
-
-Project documentation for GitHub Pages is available in the docs site:
-
-- [Docs home](docs/index.md)
