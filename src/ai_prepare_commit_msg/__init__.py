@@ -29,6 +29,7 @@ behavior beyond logging.
 
 import logging
 import os
+from pathlib import Path
 from typing import Sequence
 
 import click
@@ -81,7 +82,7 @@ def cli(model: str, prompt_file: str, log_level: str, files: Sequence[str]) -> N
     if os.environ.get("PRE_COMMIT") == "1" and files:
         logger.info("Running in pre-commit mode (files passed); continuing.")
 
-    repo = git.GitRepository(os.getcwd())
+    repo = git.GitRepository(Path.cwd())
 
     diff_message = repo.get_diff_message()
 
@@ -92,7 +93,7 @@ def cli(model: str, prompt_file: str, log_level: str, files: Sequence[str]) -> N
     logger.debug("Staged diff length: %d chars", len(diff_message))
 
     commit_msg = get_commit_msg(
-        model, diff_message, os.path.join(os.path.dirname(__file__), prompt_file)
+        model, diff_message, Path(__file__).parent / prompt_file
     )
     logger.debug(
         "Generated commit message (%d chars):\n%s", len(commit_msg), commit_msg

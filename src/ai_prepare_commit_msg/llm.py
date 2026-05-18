@@ -24,7 +24,7 @@ the model's choices.
 import concurrent.futures
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import litellm
 import yaml
@@ -89,7 +89,7 @@ def _extract_choice_content(choice: Any) -> str:
 
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
-    messages: List[Dict[str, str]] = _load_prompt_messages(prompt_file)
+    messages: list[dict[str, str]] = _load_prompt_messages(prompt_file)
     logger.debug("Loaded %d prompt messages from %s", len(messages), prompt_file)
 
     messages.append({"role": "user", "content": diff_message})
@@ -128,7 +128,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     return result
 
 
-def _load_prompt_messages(file_path: Union[str, Path]) -> List[Dict[str, str]]:
+def _load_prompt_messages(file_path: str | Path) -> list[dict[str, str]]:
     """Load and validate prompt messages from a YAML file.
 
     The prompt YAML must be a mapping with a top-level `messages` key whose
@@ -162,7 +162,7 @@ def _load_prompt_messages(file_path: Union[str, Path]) -> List[Dict[str, str]]:
     if not isinstance(messages, list):
         raise ValueError("'messages' must be a list in the prompt file")
 
-    validated: List[Dict[str, str]] = []
+    validated: list[dict[str, str]] = []
     for idx, item in enumerate(messages):
         if not isinstance(item, dict):
             raise ValueError(f"message at index {idx} must be a mapping/dict")
