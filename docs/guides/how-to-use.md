@@ -9,7 +9,7 @@ with the hook in place.
   See [How to install](how-to-install.md).
 - You have changes ready to commit in your repository.
 - You configured model and API settings.
-   See the [Configuration reference](../reference/configuration.md).
+  See the [Configuration reference](../reference/configuration.md).
 
 ## Generate a commit message
 

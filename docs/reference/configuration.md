@@ -13,11 +13,11 @@ or CI.
 
 ### Core variables
 
-| Variable | Description |
-| --- | --- |
-| `LITELLM_PROXY_MODEL` | LiteLLM model ID for commit generation. |
-| `LITELLM_PROXY_API_BASE` | LiteLLM proxy base URL. |
-| `LITELLM_PROXY_API_KEY` | LiteLLM proxy API key, if required. |
+| Variable                 | Description                             |
+| ------------------------ | --------------------------------------- |
+| `LITELLM_PROXY_MODEL`    | LiteLLM model ID for commit generation. |
+| `LITELLM_PROXY_API_BASE` | LiteLLM proxy base URL.                 |
+| `LITELLM_PROXY_API_KEY`  | LiteLLM proxy API key, if required.     |
 
 ### Provider-specific keys
 
@@ -34,25 +34,25 @@ set the matching API key:
 
 ### Azure OpenAI
 
-| Variable            | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `AZURE_API_BASE`    | Azure OpenAI endpoint URL.                          |
-| `AZURE_API_VERSION` | Azure OpenAI API version, such as `2023-05-15`.    |
-| `AZURE_API_TYPE`    | Set this value to `azure`.                          |
+| Variable            | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `AZURE_API_BASE`    | Azure OpenAI endpoint URL.                      |
+| `AZURE_API_VERSION` | Azure OpenAI API version, such as `2023-05-15`. |
+| `AZURE_API_TYPE`    | Set this value to `azure`.                      |
 
 ### Custom OpenAI base URL
 
-| Variable          | Description                                           |
-| ----------------- | ----------------------------------------------------- |
+| Variable          | Description                                            |
+| ----------------- | ------------------------------------------------------ |
 | `OPENAI_BASE_URL` | Base URL for a self-hosted OpenAI-compatible endpoint. |
 
 ## CLI Options
 
-| Option | Description |
-| --- | --- |
-| `--model` | Model ID. Overrides `LITELLM_PROXY_MODEL`. |
+| Option          | Description                                              |
+| --------------- | -------------------------------------------------------- |
+| `--model`       | Model ID. Overrides `LITELLM_PROXY_MODEL`.               |
 | `--prompt-file` | YAML prompt file path. Default is `prompts/default.yml`. |
-| `--log-level` | Logging level. Default is `WARNING`. |
+| `--log-level`   | Logging level. Default is `WARNING`.                     |
 
 The package exposes a `prepare-commit` console script:
 

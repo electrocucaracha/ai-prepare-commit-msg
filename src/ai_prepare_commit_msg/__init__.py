@@ -30,7 +30,7 @@ behavior beyond logging.
 import logging
 import os
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, TextIO
 
 import click
 
@@ -38,6 +38,47 @@ from ai_prepare_commit_msg import git
 from ai_prepare_commit_msg.llm import get_commit_msg
 
 logger = logging.getLogger(__name__)
+
+
+def _confirm_generated_message(commit_msg: str) -> bool:
+    """Prompt the user to accept the generated commit message.
+
+    Args:
+        commit_msg: Generated commit message content.
+
+    Returns:
+        True when the user accepts the message, otherwise False.
+    """
+    try:
+        with Path("/dev/tty").open("r+", encoding="utf-8") as tty_stream:
+            return _prompt_on_stream(tty_stream, commit_msg)
+    except OSError:
+        logger.error(
+            "No interactive TTY available; refusing to auto-approve commit message."
+        )
+        return False
+
+
+def _prompt_on_stream(stream: TextIO, commit_msg: str) -> bool:
+    """Render commit message and read a yes/no confirmation from a stream."""
+    stream.write("\nGenerated commit message:\n\n")
+    stream.write(f"{commit_msg}\n\n")
+
+    while True:
+        stream.write("Use this generated commit message? [Y/n]: ")
+        stream.flush()
+        response = stream.readline()
+
+        if not response:
+            return False
+
+        normalized = response.strip().lower()
+        if normalized in {"", "y", "yes"}:
+            return True
+        if normalized in {"n", "no"}:
+            return False
+
+        stream.write("Please answer 'y' or 'n'.\n")
 
 
 @click.command()
@@ -61,14 +102,27 @@ logger = logging.getLogger(__name__)
     show_default=True,
     help="Set the logging level.",
 )
+@click.option(
+    "--auto-approve",
+    is_flag=True,
+    envvar="AI_PREPARE_COMMIT_AUTO_APPROVE",
+    help="Skip confirmation and write the generated message immediately.",
+)
 @click.argument("files", nargs=-1, type=click.UNPROCESSED)
-def cli(model: str, prompt_file: str, log_level: str, files: Sequence[str]) -> None:
+def cli(
+    model: str,
+    prompt_file: str,
+    log_level: str,
+    auto_approve: bool,
+    files: Sequence[str],
+) -> None:
     """Generate commit messages using AI assistance.
 
     Args:
         model: LiteLLM model identifier (required).
         prompt_file: Path to the YAML prompt definition file.
         log_level: Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        auto_approve: Skip interactive confirmation when set.
         files: Files passed by pre-commit (unused except to detect pre-commit).
     """
     logging.basicConfig(
@@ -92,12 +146,14 @@ def cli(model: str, prompt_file: str, log_level: str, files: Sequence[str]) -> N
 
     logger.debug("Staged diff length: %d chars", len(diff_message))
 
-    commit_msg = get_commit_msg(
-        model, diff_message, Path(__file__).parent / prompt_file
-    )
+    prompt_path = Path(__file__).parent / prompt_file
+    commit_msg = get_commit_msg(model, diff_message, str(prompt_path))
     logger.debug(
         "Generated commit message (%d chars):\n%s", len(commit_msg), commit_msg
     )
+
+    if not auto_approve and not _confirm_generated_message(commit_msg):
+        raise click.ClickException("Commit message not approved; aborting commit.")
 
     repo.write_commit_msg(commit_msg)
     logger.info("Commit message written successfully.")

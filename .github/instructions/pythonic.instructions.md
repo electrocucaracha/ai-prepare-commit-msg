@@ -55,7 +55,7 @@ or clearly report the failure details and blocker.
 ## Idiomatic Python (Hettinger, PyCon US 2013)
 
 The following guidelines are drawn from
-*Transforming Code Into Beautiful, Idiomatic Python* by Raymond Hettinger.
+_Transforming Code Into Beautiful, Idiomatic Python_ by Raymond Hettinger.
 
 ### Looping
 
