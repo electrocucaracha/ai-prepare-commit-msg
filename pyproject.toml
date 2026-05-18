@@ -33,7 +33,6 @@ spell = [
 fmt = [
     "black",
     "isort",
-    "pyink",
     "ruff",
 ]
 
@@ -84,10 +83,6 @@ commands = [
     ],
     [
         "isort",
-        ".",
-    ],
-    [
-        "pyink",
         ".",
     ],
     [
