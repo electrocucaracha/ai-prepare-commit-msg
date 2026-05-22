@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import litellm
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
