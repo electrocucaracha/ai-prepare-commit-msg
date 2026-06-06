@@ -23,6 +23,8 @@ messages:
 
       BODY (omit only for typo/whitespace fixes):
         - Each sentence on its own line; break at clause boundaries; max 72 chars
+        - Semantic line breaks: one sentence per line, split long sentences
+          at a natural clause boundary (comma, conjunction)
         - Flow: problem → why this approach → what changed → impact
         - Self-contained: state the problem and reasoning explicitly;
           never assume access to bug trackers or prior context
