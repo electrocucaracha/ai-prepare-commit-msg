@@ -21,6 +21,7 @@ laobi
 Lifecycle
 linter
 LiteLLM
+nav
 ol
 OpenAI
 opensource
@@ -35,6 +36,8 @@ src
 svg
 symlink
 TOGETHERAI
+walkthrough
+walkthroughs
 XAI
 xyz
 yaml
