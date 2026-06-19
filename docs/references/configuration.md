@@ -1,4 +1,10 @@
-# Configuration Reference
+---
+title: Configuration reference
+parent: Reference
+nav_order: 1
+---
+
+# Configuration reference
 
 This page describes environment variables
 and CLI options for `ai-prepare-commit-msg`.
@@ -91,6 +97,6 @@ export OPENAI_BASE_URL="https://your_host/v1"
 
 ## Related
 
-- [How to install](../guides/how-to-install.md)
-- [How to use](../guides/how-to-use.md)
+- [How to install](../how-to-guides/how-to-install.md)
+- [How to use](../how-to-guides/how-to-use.md)
 - [Reference index](index.md)

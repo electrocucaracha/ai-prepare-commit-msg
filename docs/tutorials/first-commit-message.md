@@ -1,4 +1,8 @@
-# Tutorial: Generate Your First Commit Message
+---
+title: Generate your first commit message
+parent: Tutorials
+nav_order: 1
+---
 
 In this tutorial,
 you will configure the hook and complete a commit with an AI-generated message.
@@ -13,7 +17,7 @@ When you finish, you will know the complete happy-path workflow.
 
 ## Step 1: Install the Hook
 
-Follow [How to install](../guides/how-to-install.md)
+Follow [How to install](../how-to-guides/how-to-install.md)
 using the `pre-commit` method.
 
 ## Step 2: Configure Environment Variables
@@ -62,5 +66,5 @@ then save and close the editor.
 
 ## Next Step
 
-Continue with [How to use](../guides/how-to-use.md)
+Continue with [How to use](../how-to-guides/how-to-use.md)
 to learn repeatable daily usage.

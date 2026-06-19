@@ -1,4 +1,8 @@
-# How the Hook Works
+---
+title: How the hook works
+parent: Explanations
+nav_order: 1
+---
 
 `ai-prepare-commit-msg` connects Git's `prepare-commit-msg` lifecycle
 to a language model through LiteLLM.
@@ -43,6 +47,6 @@ and replace.
 
 ## Related
 
-- [How to use](../guides/how-to-use.md)
-- [Configuration reference](../reference/configuration.md)
+- [How to use](../how-to-guides/how-to-use.md)
+- [Configuration reference](../references/configuration.md)
 - [Explanation index](index.md)
