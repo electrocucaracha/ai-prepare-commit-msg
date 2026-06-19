@@ -29,6 +29,7 @@ behavior beyond logging.
 
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Sequence, TextIO
 
@@ -103,6 +104,20 @@ def _prompt_on_stream(stream: TextIO, commit_msg: str) -> bool:
     help="Set the logging level.",
 )
 @click.option(
+    "--retry",
+    type=click.IntRange(min=1),
+    default=5,
+    show_default=True,
+    help="Maximum number of attempts when the generated commit message is empty.",
+)
+@click.option(
+    "--retry-sleep",
+    type=click.FloatRange(min=0),
+    default=3.0,
+    show_default=True,
+    help="Seconds to wait between retries when the generated message is empty.",
+)
+@click.option(
     "--auto-approve",
     is_flag=True,
     envvar="AI_PREPARE_COMMIT_AUTO_APPROVE",
@@ -113,6 +128,8 @@ def cli(
     model: str,
     prompt_file: str,
     log_level: str,
+    retry: int,
+    retry_sleep: float,
     auto_approve: bool,
     files: Sequence[str],
 ) -> None:
@@ -122,6 +139,8 @@ def cli(
         model: LiteLLM model identifier (required).
         prompt_file: Path to the YAML prompt definition file.
         log_level: Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        retry: Maximum attempts when generated commit message is empty.
+        retry_sleep: Seconds to wait between retry attempts.
         auto_approve: Skip interactive confirmation when set.
         files: Files passed by pre-commit (unused except to detect pre-commit).
     """
@@ -147,7 +166,26 @@ def cli(
     logger.debug("Staged diff length: %d chars", len(diff_message))
 
     prompt_path = Path(__file__).parent / prompt_file
-    commit_msg = get_commit_msg(model, diff_message, str(prompt_path))
+    commit_msg = ""
+    for attempt in range(1, retry + 1):
+        commit_msg = get_commit_msg(model, diff_message, str(prompt_path)).strip()
+        if commit_msg:
+            break
+
+        if attempt < retry:
+            logger.warning(
+                "Generated commit message is empty (attempt %d/%d). Retrying in %s seconds.",
+                attempt,
+                retry,
+                retry_sleep,
+            )
+            time.sleep(retry_sleep)
+
+    if not commit_msg:
+        raise click.ClickException(
+            "Generated commit message is empty after all retry attempts."
+        )
+
     logger.debug(
         "Generated commit message (%d chars):\n%s", len(commit_msg), commit_msg
     )

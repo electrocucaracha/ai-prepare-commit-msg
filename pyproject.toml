@@ -5,6 +5,7 @@ description = "AI assistant that generates git commit messages"
 dependencies = [
     "click",
     "litellm",
+    "headroom-ai",
     "GitPython>=3.1.49",
     "aiohttp",
     "python-dotenv>=1.0.1",

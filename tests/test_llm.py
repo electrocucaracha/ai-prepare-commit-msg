@@ -95,6 +95,35 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
     assert result == "generated\nmore"
 
 
+def test_configure_headroom_callback_when_available(monkeypatch):
+    """Headroom callback is registered once when available."""
+
+    class FakeHeadroomCallback:
+        """Simple fake callback class used for callback registration tests."""
+
+    monkeypatch.setattr(llm, "HeadroomCallback", FakeHeadroomCallback)
+    monkeypatch.setattr(llm, "_headroom_callback_configured", False)
+    monkeypatch.setattr(llm.litellm, "callbacks", [])
+
+    llm._configure_headroom_callback()
+    llm._configure_headroom_callback()
+
+    callbacks = llm.litellm.callbacks
+    assert len(callbacks) == 1
+    assert isinstance(callbacks[0], FakeHeadroomCallback)
+
+
+def test_configure_headroom_callback_when_unavailable(monkeypatch):
+    """Headroom callback setup is skipped safely when dependency is missing."""
+    monkeypatch.setattr(llm, "HeadroomCallback", None)
+    monkeypatch.setattr(llm, "_headroom_callback_configured", False)
+    monkeypatch.setattr(llm.litellm, "callbacks", [])
+
+    llm._configure_headroom_callback()
+
+    assert llm.litellm.callbacks == []
+
+
 def test__load_prompt_messages_file_handling(tmp_path):
     """Prompt YAML parsing and validation scenarios."""
 

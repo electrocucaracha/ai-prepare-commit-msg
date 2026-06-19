@@ -102,3 +102,111 @@ def test_cli_auto_approve_skips_confirmation(monkeypatch):
 
     assert result.exit_code == 0
     assert holder["repo"].written_message == "msg"
+
+
+def test_cli_retries_until_message_generated(monkeypatch):
+    """CLI retries empty results and writes the first non-empty message."""
+    holder = {}
+
+    def build_repo(_path):
+        repo = DummyRepo(_path)
+        holder["repo"] = repo
+        return repo
+
+    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+
+    responses = iter(["", "   ", "final message"])
+    monkeypatch.setattr(
+        ai_prepare_commit_msg,
+        "get_commit_msg",
+        lambda *_args: next(responses),
+    )
+    monkeypatch.setattr(
+        ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: True
+    )
+
+    sleep_calls = []
+    monkeypatch.setattr(
+        ai_prepare_commit_msg.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        ai_prepare_commit_msg.cli, ["--model", "test-model", "--retry", "5"]
+    )
+
+    assert result.exit_code == 0
+    assert holder["repo"].written_message == "final message"
+    assert sleep_calls == [3, 3]
+
+
+def test_cli_errors_when_retry_limit_reached(monkeypatch):
+    """CLI exits with an error when message remains empty after all retries."""
+    holder = {}
+
+    def build_repo(_path):
+        repo = DummyRepo(_path)
+        holder["repo"] = repo
+        return repo
+
+    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+    monkeypatch.setattr(ai_prepare_commit_msg, "get_commit_msg", lambda *_args: "")
+    monkeypatch.setattr(
+        ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: True
+    )
+
+    sleep_calls = []
+    monkeypatch.setattr(
+        ai_prepare_commit_msg.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        ai_prepare_commit_msg.cli, ["--model", "test-model", "--retry", "2"]
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Generated commit message is empty after all retry attempts." in result.output
+    )
+    assert holder["repo"].written_message is None
+    assert sleep_calls == [3]
+
+
+def test_cli_uses_user_provided_retry_sleep(monkeypatch):
+    """CLI waits for the user-provided retry sleep duration."""
+    holder = {}
+
+    def build_repo(_path):
+        repo = DummyRepo(_path)
+        holder["repo"] = repo
+        return repo
+
+    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+
+    responses = iter(["", "message after wait"])
+    monkeypatch.setattr(
+        ai_prepare_commit_msg,
+        "get_commit_msg",
+        lambda *_args: next(responses),
+    )
+    monkeypatch.setattr(
+        ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: True
+    )
+
+    sleep_calls = []
+    monkeypatch.setattr(
+        ai_prepare_commit_msg.time,
+        "sleep",
+        lambda seconds: sleep_calls.append(seconds),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        ai_prepare_commit_msg.cli,
+        ["--model", "test-model", "--retry", "5", "--retry-sleep", "1.5"],
+    )
+
+    assert result.exit_code == 0
+    assert holder["repo"].written_message == "message after wait"
+    assert sleep_calls == [1.5]

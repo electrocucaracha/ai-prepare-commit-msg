@@ -29,7 +29,41 @@ from typing import Any
 import litellm
 import yaml  # type: ignore[import-untyped]
 
+try:
+    from headroom.integrations.litellm_callback import HeadroomCallback
+except ImportError:  # pragma: no cover - exercised via integration environment
+    HeadroomCallback = None  # type: ignore[assignment,misc]
+
 logger = logging.getLogger(__name__)
+_headroom_callback_configured = False
+
+
+def _configure_headroom_callback() -> None:
+    """Enable Headroom prompt compression callback for LiteLLM when available."""
+    global _headroom_callback_configured
+    if _headroom_callback_configured:
+        return
+
+    _headroom_callback_configured = True
+
+    if HeadroomCallback is None:
+        logger.debug("Headroom is not installed; skipping prompt compression callback.")
+        return
+
+    callbacks = getattr(litellm, "callbacks", None)
+    if callbacks is None:
+        callbacks = []
+        litellm.callbacks = callbacks
+    elif not isinstance(callbacks, list):
+        callbacks = list(callbacks)
+        litellm.callbacks = callbacks
+
+    if any(isinstance(callback, HeadroomCallback) for callback in callbacks):
+        logger.debug("Headroom callback already configured for LiteLLM.")
+        return
+
+    callbacks.append(HeadroomCallback())
+    logger.debug("Headroom callback configured for LiteLLM prompt compression.")
 
 
 def _extract_choice_content(choice: Any) -> str:
@@ -89,6 +123,8 @@ def _extract_choice_content(choice: Any) -> str:
 
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
+    _configure_headroom_callback()
+
     messages: list[dict[str, str]] = _load_prompt_messages(prompt_file)
     logger.debug("Loaded %d prompt messages from %s", len(messages), prompt_file)
 
