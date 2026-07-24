@@ -124,6 +124,8 @@ def _prompt_on_stream(stream: TextIO, commit_msg: str) -> bool:
     help="Skip confirmation and write the generated message immediately.",
 )
 @click.argument("files", nargs=-1, type=click.UNPROCESSED)
+# Click injects option values as positional args for this command callback.
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 def cli(
     model: str,
     prompt_file: str,

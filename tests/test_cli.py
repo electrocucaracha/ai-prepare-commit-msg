@@ -54,6 +54,53 @@ def _configure_cli_dependencies(monkeypatch):
     return holder
 
 
+def _always_true(_message):
+    """Return True for confirmation prompts."""
+    return True
+
+
+def _always_empty_message(*_args):
+    """Return an empty LLM response."""
+    return ""
+
+
+def _next_message(responses):
+    """Create a function that returns the next mocked LLM response."""
+
+    def get_message(*_args):
+        return next(responses)
+
+    return get_message
+
+
+def _record_sleep_calls(monkeypatch):
+    """Patch time.sleep and return a list that captures sleep durations."""
+    sleep_calls = []
+
+    def record_sleep(seconds):
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(ai_prepare_commit_msg.time, "sleep", record_sleep)
+    return sleep_calls
+
+
+def _invoke_cli_with_retries(monkeypatch, llm_response, args):
+    """Run the CLI with patched retry-related dependencies.
+
+    Returns:
+        tuple: (result, sleep_calls)
+    """
+    monkeypatch.setattr(ai_prepare_commit_msg, "get_commit_msg", llm_response)
+    monkeypatch.setattr(
+        ai_prepare_commit_msg, "_confirm_generated_message", _always_true
+    )
+    sleep_calls = _record_sleep_calls(monkeypatch)
+
+    runner = CliRunner()
+    result = runner.invoke(ai_prepare_commit_msg.cli, args)
+    return result, sleep_calls
+
+
 def test_cli_writes_message_after_confirmation(monkeypatch):
     """CLI writes the generated message when user confirms."""
     holder = _configure_cli_dependencies(monkeypatch)
@@ -116,23 +163,10 @@ def test_cli_retries_until_message_generated(monkeypatch):
     monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
 
     responses = iter(["", "   ", "final message"])
-    monkeypatch.setattr(
-        ai_prepare_commit_msg,
-        "get_commit_msg",
-        lambda *_args: next(responses),
-    )
-    monkeypatch.setattr(
-        ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: True
-    )
-
-    sleep_calls = []
-    monkeypatch.setattr(
-        ai_prepare_commit_msg.time, "sleep", lambda seconds: sleep_calls.append(seconds)
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(
-        ai_prepare_commit_msg.cli, ["--model", "test-model", "--retry", "5"]
+    result, sleep_calls = _invoke_cli_with_retries(
+        monkeypatch,
+        _next_message(responses),
+        ["--model", "test-model", "--retry", "5"],
     )
 
     assert result.exit_code == 0
@@ -150,19 +184,10 @@ def test_cli_errors_when_retry_limit_reached(monkeypatch):
         return repo
 
     monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
-    monkeypatch.setattr(ai_prepare_commit_msg, "get_commit_msg", lambda *_args: "")
-    monkeypatch.setattr(
-        ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: True
-    )
-
-    sleep_calls = []
-    monkeypatch.setattr(
-        ai_prepare_commit_msg.time, "sleep", lambda seconds: sleep_calls.append(seconds)
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(
-        ai_prepare_commit_msg.cli, ["--model", "test-model", "--retry", "2"]
+    result, sleep_calls = _invoke_cli_with_retries(
+        monkeypatch,
+        _always_empty_message,
+        ["--model", "test-model", "--retry", "2"],
     )
 
     assert result.exit_code != 0
@@ -185,25 +210,9 @@ def test_cli_uses_user_provided_retry_sleep(monkeypatch):
     monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
 
     responses = iter(["", "message after wait"])
-    monkeypatch.setattr(
-        ai_prepare_commit_msg,
-        "get_commit_msg",
-        lambda *_args: next(responses),
-    )
-    monkeypatch.setattr(
-        ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: True
-    )
-
-    sleep_calls = []
-    monkeypatch.setattr(
-        ai_prepare_commit_msg.time,
-        "sleep",
-        lambda seconds: sleep_calls.append(seconds),
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(
-        ai_prepare_commit_msg.cli,
+    result, sleep_calls = _invoke_cli_with_retries(
+        monkeypatch,
+        _next_message(responses),
         ["--model", "test-model", "--retry", "5", "--retry-sleep", "1.5"],
     )
 

@@ -101,8 +101,8 @@ def test_configure_headroom_callback_when_available(monkeypatch):
     class FakeHeadroomCallback:
         """Simple fake callback class used for callback registration tests."""
 
+    llm._configure_headroom_callback.cache_clear()
     monkeypatch.setattr(llm, "HeadroomCallback", FakeHeadroomCallback)
-    monkeypatch.setattr(llm, "_headroom_callback_configured", False)
     monkeypatch.setattr(llm.litellm, "callbacks", [])
 
     llm._configure_headroom_callback()
@@ -115,8 +115,8 @@ def test_configure_headroom_callback_when_available(monkeypatch):
 
 def test_configure_headroom_callback_when_unavailable(monkeypatch):
     """Headroom callback setup is skipped safely when dependency is missing."""
+    llm._configure_headroom_callback.cache_clear()
     monkeypatch.setattr(llm, "HeadroomCallback", None)
-    monkeypatch.setattr(llm, "_headroom_callback_configured", False)
     monkeypatch.setattr(llm.litellm, "callbacks", [])
 
     llm._configure_headroom_callback()

@@ -22,6 +22,7 @@ the model's choices.
 """
 
 import concurrent.futures
+import functools
 import logging
 from pathlib import Path
 from typing import Any
@@ -35,17 +36,11 @@ except ImportError:  # pragma: no cover - exercised via integration environment
     HeadroomCallback = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
-_headroom_callback_configured = False
 
 
+@functools.lru_cache(maxsize=1)
 def _configure_headroom_callback() -> None:
     """Enable Headroom prompt compression callback for LiteLLM when available."""
-    global _headroom_callback_configured
-    if _headroom_callback_configured:
-        return
-
-    _headroom_callback_configured = True
-
     if HeadroomCallback is None:
         logger.debug("Headroom is not installed; skipping prompt compression callback.")
         return
