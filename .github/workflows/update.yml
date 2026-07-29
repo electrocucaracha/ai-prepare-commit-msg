@@ -31,6 +31,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # 6.4.0
         with:
           go-version: "^1.25"
+      # yamllint disable-line rule:line-length
       - uses: technote-space/create-pr-action@91114507cf92349bec0a9a501c2edf1635427bc5 # 2.1.4
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
@@ -51,6 +52,7 @@ jobs:
         with:
           persist-credentials: false
       - name: update Dockerfile
+        # yamllint disable-line rule:line-length
         uses: ludeeus/dockerfile-updater@eaf8ea79220d076eb46c127fa9895e3de3e0a512 # 21.01.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

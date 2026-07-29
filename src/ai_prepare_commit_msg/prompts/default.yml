@@ -8,6 +8,7 @@
 ##############################################################################
 messages:
   - role: system
+    # yamllint disable rule:line-length
     content: |
       You are an expert at writing Git commit messages.
       Output ONLY the commit message — no preamble, no code fences, no labels.
@@ -43,6 +44,7 @@ messages:
         Raising it to 5 aligns with observed failure rates
         and significantly reduces false-positive alerts.
         Further tuning per-endpoint will be addressed separately.
+    # yamllint enable rule:line-length
   - role: user
     content: |
       Output ONLY the commit message for the diff below.
