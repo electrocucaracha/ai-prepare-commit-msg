@@ -6,43 +6,43 @@
 # which accompanies this distribution, and is available at
 # http://www.apache.org/licenses/LICENSE-2.0
 ##############################################################################
-name: Scheduled Versions verification
+name: "Maintenance: Scheduled Dependency Version Updates"
 # yamllint disable-line rule:truthy
 on:
   schedule:
     - cron: "0 0 * * 5"
   workflow_dispatch:
 permissions: read-all
+concurrency:
+  group: scheduled-version-updates
+  cancel-in-progress: true
 jobs:
   check-versions:
+    name: Update Managed Version Files
     runs-on: ubuntu-latest
-    environment: versions-update
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-        env:
-          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          # Fine-grained PAT with contents:write and workflows:write scopes
-          token: ${{ env.WORKFLOW_TOKEN }}
+          token: ${{ secrets.WORKFLOW_TOKEN }}
           persist-credentials: true
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # 6.4.0
+      - name: Setup Go environment
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "^1.25"
-      # yamllint disable-line rule:line-length
-      - uses: technote-space/create-pr-action@91114507cf92349bec0a9a501c2edf1635427bc5 # 2.1.4
-        env:
-          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          go-version: "1.26.0"
+          cache: false
+      - name: Create pull request for version updates
+        uses: technote-space/create-pr-action@91114507cf92349bec0a9a501c2edf1635427bc5 # v2.1.4
         with:
-          GITHUB_TOKEN: ${{ env.WORKFLOW_TOKEN }}
           EXECUTE_COMMANDS: |
             ./ci/update_versions.sh
-          COMMIT_MESSAGE: "Upgrade versions files"
+          COMMIT_MESSAGE: "chore: update versions"
           COMMIT_NAME: "electrocucaracha bot"
           PR_BRANCH_NAME: "versions-update-${PR_ID}"
-          PR_TITLE: "chore: update versions"
+          PR_TITLE: "Upgrade versions files"
   check-dockerfile:
     runs-on: ubuntu-latest
     permissions:
