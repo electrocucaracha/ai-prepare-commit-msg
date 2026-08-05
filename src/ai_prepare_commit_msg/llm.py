@@ -37,6 +37,12 @@ except ImportError:  # pragma: no cover - exercised via integration environment
 
 logger = logging.getLogger(__name__)
 
+MAX_PROMPT_TOKENS = 120_000
+OVERSIZED_DIFF_WARNING = (
+    "Warning: staged diff is too large for AI commit message generation. "
+    "Skipping the LLM request. Please write the commit message manually."
+)
+
 
 @functools.lru_cache(maxsize=1)
 def _configure_headroom_callback() -> None:
@@ -116,6 +122,34 @@ def _extract_choice_content(choice: Any) -> str:
     return str(msg) if msg is not None else ""
 
 
+def _estimate_prompt_tokens(model: str, messages: list[dict[str, str]]) -> int | None:
+    """Estimate prompt tokens for a model request.
+
+    Returns ``None`` when LiteLLM cannot provide a token estimate for the
+    current model or message shape.
+    """
+    try:
+        prompt_tokens = litellm.token_counter(model=model, messages=messages)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.debug("Unable to estimate prompt tokens for model '%s': %s", model, exc)
+        return None
+
+    return int(prompt_tokens)
+
+
+def _has_oversized_prompt_error(error: Exception) -> bool:
+    """Return ``True`` when an exception indicates the prompt is too large."""
+    message = str(error).lower()
+    oversized_markers = (
+        "prompt token count",
+        "context length",
+        "maximum context length",
+        "too many tokens",
+        "exceeds the limit",
+    )
+    return any(marker in message for marker in oversized_markers)
+
+
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
     _configure_headroom_callback()
@@ -124,6 +158,15 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     logger.debug("Loaded %d prompt messages from %s", len(messages), prompt_file)
 
     messages.append({"role": "user", "content": diff_message})
+
+    prompt_tokens = _estimate_prompt_tokens(model, messages)
+    if prompt_tokens is not None and prompt_tokens > MAX_PROMPT_TOKENS:
+        logger.warning(
+            "Skipping LLM call: estimated prompt token count %d exceeds safe limit %d.",
+            prompt_tokens,
+            MAX_PROMPT_TOKENS,
+        )
+        return OVERSIZED_DIFF_WARNING
 
     def call_llm():
         response = litellm.completion(
@@ -153,8 +196,12 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
         logger.error("LLM call timed out after %d seconds", timeout)
         result = ""  # Fallback to empty commit message
     except Exception as e:  # pylint: disable=broad-except
-        logger.error("LLM call failed: %s", e)
-        result = ""  # Fallback to empty commit message
+        if _has_oversized_prompt_error(e):
+            logger.warning("Skipping LLM call after oversized prompt rejection: %s", e)
+            result = OVERSIZED_DIFF_WARNING
+        else:
+            logger.error("LLM call failed: %s", e)
+            result = ""  # Fallback to empty commit message
 
     return result
 

@@ -90,9 +90,46 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
 
     # Monkeypatch the litellm completion function in the imported module
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 42)
 
     result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
     assert result == "generated\nmore"
+
+
+def test_get_commit_msg_skips_oversized_diff_before_llm_call(monkeypatch):
+    """Oversized diffs return a warning without calling the provider."""
+    monkeypatch.setattr(
+        llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
+    )
+    monkeypatch.setattr(
+        llm, "_estimate_prompt_tokens", lambda *_args: llm.MAX_PROMPT_TOKENS + 1
+    )
+
+    def fail_completion(**_kwargs):
+        raise AssertionError("litellm.completion should not be called")
+
+    monkeypatch.setattr(llm.litellm, "completion", fail_completion)
+
+    result = llm.get_commit_msg("mymodel", "very large diff", "prompt.yml")
+
+    assert result == llm.OVERSIZED_DIFF_WARNING
+
+
+def test_get_commit_msg_returns_warning_for_oversized_provider_error(monkeypatch):
+    """Provider token-limit failures degrade to a warning message."""
+    monkeypatch.setattr(
+        llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
+    )
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 42)
+
+    def fake_completion(**_kwargs):
+        raise RuntimeError("prompt token count of 287975 exceeds the limit of 128000")
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
+
+    assert result == llm.OVERSIZED_DIFF_WARNING
 
 
 def test_configure_headroom_callback_when_available(monkeypatch):
