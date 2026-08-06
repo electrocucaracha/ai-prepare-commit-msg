@@ -9,11 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.4.0] - 2026-08-06
+
+### Added
+
+- Enabled exclusion of CHANGELOG.md from spell checks to prevent false positives and improve the accuracy of relevant spell checking results. [8d439379](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8d4393794546e55d24e7afe87dca5f2f34919506)
+
+## [6.3.2] - 2026-08-06
+
+### Fixed
+
+- Standardized capitalization and branding in the changelog to improve clarity and consistency, aligning with official documentation standards without introducing any breaking beh... [7828ba55](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/7828ba55399f5c67e212bafc28d9bb13fd45423b)
+
+## [6.3.1] - 2026-08-06
+
 ### Changed
 
 - Updated multiple dependencies to their latest versions, ensuring compatibility with upstream improvements and maintaining project stability without introducing breaking changes;... [5da4f2a8](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/5da4f2a8922f53ff090e81f06f1dc22bfc9e35db)
 - Streamlined maintenance and reduced risks by introducing concurrency control to prevent overlapping dependency updates and standardizing version update automation messages. [48baa307](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/48baa30765b8ecf6cebe5bc7d6974c7d0bfd1f60)
 - Improved maintainability and reduced the likelihood of errors by enabling fine-grained control over auto-updating GitHub Actions through explicit lists for exceptions and pinned... [71ed1bdb](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/71ed1bdb34a6184e23a0f1749f42d1d05b691e36)
+- Enabled automated pull request creation and Dockerfile updates by switching to WORKFLOW_TOKEN, which resolves permission issues and ensures workflow steps complete successfully,... [f3acb649](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/f3acb649be0034114108459727e3b47061388ea1)
+
+## [6.3.0] - 2026-08-06
+
+### Added
+
+- Enabled more accurate spell checking and linter checks by expanding the custom wordlist to include project-specific terms, tool names, and abbreviations commonly used in the cod... [856b2a82](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/856b2a821786804fbb3009dd272960019a85e92b)
 
 ## [6.2.0] - 2026-08-04
 
@@ -256,4 +277,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enabled support for AI-powered generation of Git commit messages through the introduction of a new CLI command and configuration files. [842d6be8](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/842d6be81901b7df7c53ed030f87e60e1141508e)
 - Introduced automatic formatting of Python files using Black, Isort, Pyupgrade, Ruff, and Ruff-Format before each commit, ensuring consistent formatting across all project files. [068eb68f](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/068eb68f7eda4e6fa704d13c414fa2556667f925)
 - Unlocked multi-language development environments for Docker, Node, Python, Ruby, and UV projects by introducing increased CPU and memory requirements for hosts running the dev co... [eda7d6cb](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/eda7d6cbb66560e65a18eec15534402395f83e7f)
-- Delivered strict formatting guidelines for Readme files by introducing a new Markdownlint hook that excludes line length checks and enforces consistent formatting to improve reada... [6737e7a2](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/6737e7a2a9d2cff85614bab52d0de52a6e02ba4d)
+- Delivered strict formatting guidelines for readme files by introducing a new Markdownlint hook that excludes line length checks and enforces consistent formatting to improve reada... [6737e7a2](https://Github.com/electrocucaracha/ai-prepare-commit-msg/commit/6737e7a2a9d2cff85614bab52d0de52a6e02ba4d)
