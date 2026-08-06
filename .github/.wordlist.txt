@@ -204,9 +204,7 @@ Trivy
 txt
 untyped
 urllib
-usag
 valida
-versio
 walkthrough
 walkthroughs
 whitespace
