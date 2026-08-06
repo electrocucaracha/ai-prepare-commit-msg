@@ -31,7 +31,7 @@ export LITELLM_PROXY_MODEL=github_copilot/gpt-4
 
 If your provider needs additional variables,
 set them now.
-See [Configuration reference](../reference/configuration.md).
+See [Configuration reference](../references/configuration.md).
 
 ## Step 3: Create a Small Change
 
