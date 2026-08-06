@@ -24,7 +24,6 @@ lint: cleanup
 	-e VALIDATE_PRE_COMMIT=false \
 	-e PYTHON_ISORT_CONFIG_FILE=pyproject.toml \
 	-e PYTHON_RUFF_FORMAT_CONFIG_FILE=pyproject.toml \
-	-e SPELL_CODESPELL_CONFIG_FILE=.codespellrc \
 	-e DEFAULT_BRANCH=main \
 	ghcr.io/super-linter/super-linter
 
@@ -38,6 +37,7 @@ fmt: cleanup
 	npx prettier . --write
 	command -v uvx > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uvx tox -e fmt
+	uvx codespell -w
 
 .PHONY: test
 test:

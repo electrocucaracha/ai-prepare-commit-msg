@@ -1,2 +1,0 @@
-[codespell]
-skip = .git*,.gitignore,.gitattributes,go.sum,*.css,.codespellrc,CHANGELOG.md,changelog,*.1

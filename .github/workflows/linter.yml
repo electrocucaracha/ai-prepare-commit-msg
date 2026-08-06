@@ -67,7 +67,6 @@ jobs:
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
           PYTHON_RUFF_FORMAT_CONFIG_FILE: pyproject.toml
           SAVE_SUPER_LINTER_OUTPUT: true
-          SPELL_CODESPELL_CONFIG_FILE: .codespellrc
           DEFAULT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Get diff
         id: git-diff
