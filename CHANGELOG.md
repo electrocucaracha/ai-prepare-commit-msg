@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.1] - 2026-08-06
+
+### Changed
+
+- Optimized spell checking accuracy by removing unnecessary words from the custom wordlist and configuring codespell to skip specific files during scanning. [c33cc8ce](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c33cc8ce500b619b15f396359efa27e4436ecc50)
+
+## [7.0.0] - 2026-08-06
+
+### Removed
+
+- Simplified codespell configuration management by removing redundant custom settings and aligning spell checking with project conventions, allowing for future adjustments via command-line options or a new configuration file if needed. [0475cb08](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/0475cb086cda5f9c4f934770f8c94392df9357c8)
+
+## [6.6.0] - 2026-08-06
+
+### Added
+
+- Enabled more accurate and consistent spell checking results during linting by introducing the project's custom codespell configuration file into the linter environment. [e259f6af](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e259f6afd31c7949f66b72fd972e5c75a175663b)
+
+## [6.5.2] - 2026-08-06
+
+### Changed
+
+- Resolved navigation errors for users following tutorials by updating the configuration reference link to point to the correct directory. [c154f82a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c154f82a3163425dbd5567848e1c60aeb0339128)
+
+## [6.5.1] - 2026-08-06
+
+### Changed
+
+- Upgraded GitHub Actions and pre-commit hooks to their latest versions, addressing security advisories, benefiting from upstream bug fixes, and ensuring compatibility with recent language and formatting standards, resulting in no breaking changes but possible differences in CI workflows and formatting. [f7184842](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/f7184842d0116f441e9033501f3861c4bc6ceb52)
+
+## [6.5.0] - 2026-08-06
+
+### Added
+
+- Expanded the wordlist for validation and testing by introducing six new entries: acb, bafc, beh, dca, Dockerfile, and fbb. [5d398bfa](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/5d398bfafee427bdeef33946b3a254e135836f97)
+
+## [6.4.1] - 2026-08-06
+
+### Changed
+
+- Optimized spell check accuracy by expanding the codespell skip list to exclude unnecessary files and updating changelogs for versions 6.4.0, 6.3.2, 6.3.1, and 6.3.0 with recent improvements to spell checking and branding consistency. [40fe6237](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/40fe62379c17e47c19e0805b5c471d02875d20aa)
+
 ## [6.4.0] - 2026-08-06
 
 ### Added
