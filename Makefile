@@ -11,7 +11,7 @@ DOCKER_CMD ?= $(shell which docker 2> /dev/null || which podman 2> /dev/null || 
 
 .PHONY: cleanup
 cleanup:
-	sudo rm -rf node_modules
+	rm -rf node_modules
 	rm -rf .tox/ .venv/
 
 .PHONY: lint
@@ -29,6 +29,8 @@ lint: cleanup
 
 .PHONY: fmt
 fmt: cleanup
+	command -v textlint > /dev/null && npm list --global --depth=0 textlint-rule-terminology > /dev/null 2>&1 || sudo npm install --global textlint textlint-rule-terminology
+	textlint . --fix
 	command -v shfmt > /dev/null || curl -s "https://i.jpillora.com/mvdan/sh!!?as=shfmt" | bash
 	shfmt -l -w -s -i 4 .
 	command -v yamlfmt > /dev/null || curl -s "https://i.jpillora.com/google/yamlfmt!!" | bash
@@ -37,7 +39,6 @@ fmt: cleanup
 	npx prettier . --write
 	command -v uvx > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uvx tox -e fmt
-	uvx codespell -w
 
 .PHONY: test
 test:
