@@ -207,7 +207,7 @@ PyYAML
 reada
 Readme
 Readme
-repository
+repo
 repos
 repository
 reviewdog
