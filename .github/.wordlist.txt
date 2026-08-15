@@ -158,9 +158,9 @@ fmt
 formatter
 formatters
 functionalit
+Git's
 GitPython
 GitRepository
-Git's
 GPT
 Hettinger's
 href
@@ -192,6 +192,7 @@ OpenStack
 OpenStack's
 oversized
 pathlib
+png
 posi
 pre
 psf
