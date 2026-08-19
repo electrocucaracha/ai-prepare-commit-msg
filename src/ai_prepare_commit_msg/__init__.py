@@ -30,12 +30,13 @@ behavior beyond logging.
 import logging
 import os
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence, TextIO
+from typing import TextIO
 
 import click
 
-from ai_prepare_commit_msg import git
+from ai_prepare_commit_msg import git, llm
 from ai_prepare_commit_msg.llm import get_commit_msg
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,8 @@ def cli(
     logger.debug(
         "Generated commit message (%d chars):\n%s", len(commit_msg), commit_msg
     )
+
+    click.echo(llm.get_compression_stats().format_summary(), err=True)
 
     if not auto_approve and not _confirm_generated_message(commit_msg):
         raise click.ClickException("Commit message not approved; aborting commit.")

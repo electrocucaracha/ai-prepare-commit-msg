@@ -15,25 +15,28 @@
 
 """LLM helpers for generating commit messages.
 
-Utilities to load prompt messages, call a LiteLLM-style completion API,
-and extract text from model responses. The public API is
-``get_commit_msg`` which returns the concatenated textual output from
-the model's choices.
+Utilities to load prompt messages, compress them with Headroom, call a
+LiteLLM-style completion API, and extract text from model responses. The
+public API is ``get_commit_msg`` which returns the concatenated textual
+output from the model's choices, plus ``get_compression_stats`` which
+reports how many prompt tokens Headroom saved.
 """
 
 import concurrent.futures
-import functools
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import litellm
 import yaml  # type: ignore[import-untyped]
 
+# Third-party compression errors must fall back to the original prompt.
+# pylint: disable=broad-exception-caught
 try:
-    from headroom.integrations.litellm_callback import HeadroomCallback
+    from headroom.compress import compress as headroom_compress
 except ImportError:  # pragma: no cover - exercised via integration environment
-    HeadroomCallback = None  # type: ignore[assignment,misc]
+    headroom_compress = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -44,27 +47,111 @@ OVERSIZED_DIFF_WARNING = (
 )
 
 
-@functools.lru_cache(maxsize=1)
-def _configure_headroom_callback() -> None:
-    """Enable Headroom prompt compression callback for LiteLLM when available."""
-    if HeadroomCallback is None:
-        logger.debug("Headroom is not installed; skipping prompt compression callback.")
-        return
+@dataclass
+class CompressionStats:
+    """Prompt token counts accumulated across Headroom compression runs.
 
-    callbacks = getattr(litellm, "callbacks", None)
-    if callbacks is None:
-        callbacks = []
-        litellm.callbacks = callbacks
-    elif not isinstance(callbacks, list):
-        callbacks = list(callbacks)
-        litellm.callbacks = callbacks
+    Examples
+    --------
+    >>> stats = CompressionStats()
+    >>> stats.format_summary()
+    'Headroom: prompt compression unavailable; no token metrics collected.'
+    >>> stats.record(1000, 750)
+    >>> stats.tokens_saved
+    250
+    >>> stats.format_summary()
+    'Headroom: 1000 -> 750 prompt tokens over 1 request(s); saved 250 (25.0%).'
 
-    if any(isinstance(callback, HeadroomCallback) for callback in callbacks):
-        logger.debug("Headroom callback already configured for LiteLLM.")
-        return
+    """
 
-    callbacks.append(HeadroomCallback())
-    logger.debug("Headroom callback configured for LiteLLM prompt compression.")
+    requests: int = 0
+    tokens_before: int = 0
+    tokens_after: int = 0
+
+    @property
+    def tokens_saved(self) -> int:
+        """Number of prompt tokens removed by compression."""
+        return self.tokens_before - self.tokens_after
+
+    @property
+    def savings_ratio(self) -> float:
+        """Fraction of prompt tokens removed, in the range 0.0 to 1.0."""
+        if self.tokens_before <= 0:
+            return 0.0
+        return self.tokens_saved / self.tokens_before
+
+    def record(self, tokens_before: int, tokens_after: int) -> None:
+        """Add one compression run to the accumulated totals."""
+        self.requests += 1
+        self.tokens_before += tokens_before
+        self.tokens_after += tokens_after
+
+    def reset(self) -> None:
+        """Clear the accumulated totals."""
+        self.requests = 0
+        self.tokens_before = 0
+        self.tokens_after = 0
+
+    def format_summary(self) -> str:
+        """Return a single-line, human-readable metrics summary."""
+        if not self.requests:
+            return (
+                "Headroom: prompt compression unavailable; no token metrics collected."
+            )
+
+        return (
+            f"Headroom: {self.tokens_before} -> {self.tokens_after} prompt tokens "
+            f"over {self.requests} request(s); "
+            f"saved {self.tokens_saved} ({self.savings_ratio:.1%})."
+        )
+
+
+_COMPRESSION_STATS = CompressionStats()
+
+
+def get_compression_stats() -> CompressionStats:
+    """Return the Headroom metrics accumulated in this process."""
+    return _COMPRESSION_STATS
+
+
+def _compress_messages(
+    model: str, messages: list[dict[str, str]]
+) -> list[dict[str, str]]:
+    """Compress prompt messages with Headroom and record token metrics.
+
+    Returns the original messages when Headroom is unavailable or fails.
+    """
+    if headroom_compress is None:
+        logger.debug("Headroom is not installed; sending the prompt uncompressed.")
+        return list(messages)
+
+    try:
+        result = headroom_compress(
+            messages=messages,
+            model=model,
+            model_limit=MAX_PROMPT_TOKENS,
+            # The staged diff is the trailing user message, so Headroom has to be
+            # told to compress it instead of protecting it as live conversation.
+            compress_user_messages=True,
+            protect_recent=0,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Headroom compression failed; using original prompt: %s", exc)
+        return list(messages)
+    # pylint: enable=broad-exception-caught
+
+    if result.tokens_before <= 0:
+        logger.debug("Headroom reported no token counts; using original prompt.")
+        return list(messages)
+
+    _COMPRESSION_STATS.record(result.tokens_before, result.tokens_after)
+    logger.debug(
+        "Headroom compressed the prompt from %d to %d tokens using %s",
+        result.tokens_before,
+        result.tokens_after,
+        result.transforms_applied,
+    )
+    return list(result.messages)
 
 
 def _extract_choice_content(choice: Any) -> str:
@@ -105,7 +192,7 @@ def _extract_choice_content(choice: Any) -> str:
     """
     # Prefer explicit message attribute when present
     if hasattr(choice, "message"):
-        msg = getattr(choice, "message")
+        msg = choice.message
     elif isinstance(choice, dict):
         # dict-like choice: prefer message, otherwise fall back to text
         msg = choice.get("message", choice.get("text", ""))
@@ -117,7 +204,7 @@ def _extract_choice_content(choice: Any) -> str:
 
     # msg might be an object with .content, or a plain string
     if hasattr(msg, "content"):
-        return getattr(msg, "content") or ""
+        return msg.content or ""
 
     return str(msg) if msg is not None else ""
 
@@ -128,11 +215,14 @@ def _estimate_prompt_tokens(model: str, messages: list[dict[str, str]]) -> int |
     Returns ``None`` when LiteLLM cannot provide a token estimate for the
     current model or message shape.
     """
+    # Token estimation is an optional safeguard and must never block generation.
+    # pylint: disable=broad-exception-caught
     try:
         prompt_tokens = litellm.token_counter(model=model, messages=messages)
-    except Exception as exc:  # pylint: disable=broad-except
+    except Exception as exc:  # noqa: BLE001
         logger.debug("Unable to estimate prompt tokens for model '%s': %s", model, exc)
         return None
+    # pylint: enable=broad-exception-caught
 
     return int(prompt_tokens)
 
@@ -152,12 +242,11 @@ def _has_oversized_prompt_error(error: Exception) -> bool:
 
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
-    _configure_headroom_callback()
+    loaded: list[dict[str, str]] = _load_prompt_messages(prompt_file)
+    logger.debug("Loaded %d prompt messages from %s", len(loaded), prompt_file)
 
-    messages: list[dict[str, str]] = _load_prompt_messages(prompt_file)
-    logger.debug("Loaded %d prompt messages from %s", len(messages), prompt_file)
-
-    messages.append({"role": "user", "content": diff_message})
+    loaded.append({"role": "user", "content": diff_message})
+    messages = _compress_messages(model, loaded)
 
     prompt_tokens = _estimate_prompt_tokens(model, messages)
     if prompt_tokens is not None and prompt_tokens > MAX_PROMPT_TOKENS:
@@ -182,6 +271,8 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     result = ""
     timeout = 10  # seconds
 
+    # Provider errors must produce a safe fallback for this git hook.
+    # pylint: disable=broad-exception-caught
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(call_llm)
@@ -195,13 +286,14 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     except concurrent.futures.TimeoutError:
         logger.error("LLM call timed out after %d seconds", timeout)
         result = ""  # Fallback to empty commit message
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:  # noqa: BLE001
         if _has_oversized_prompt_error(e):
             logger.warning("Skipping LLM call after oversized prompt rejection: %s", e)
             result = OVERSIZED_DIFF_WARNING
         else:
             logger.error("LLM call failed: %s", e)
             result = ""  # Fallback to empty commit message
+    # pylint: enable=broad-exception-caught
 
     return result
 
@@ -221,7 +313,7 @@ def _load_prompt_messages(file_path: str | Path) -> list[dict[str, str]]:
 
     Raises:
         FileNotFoundError: If the file does not exist or is not a file.
-        ValueError: If the YAML structure or message entries are invalid.
+        TypeError: If the YAML structure or message entries have invalid types.
     """
     path = Path(file_path)
     if not path.is_file():
@@ -230,7 +322,7 @@ def _load_prompt_messages(file_path: str | Path) -> list[dict[str, str]]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     if not isinstance(data, dict):
-        raise ValueError("Prompt file must contain a mapping at the top level")
+        raise TypeError("Prompt file must contain a mapping at the top level")
 
     messages = data.get("messages")
     if messages is None:
@@ -238,18 +330,18 @@ def _load_prompt_messages(file_path: str | Path) -> list[dict[str, str]]:
         return []
 
     if not isinstance(messages, list):
-        raise ValueError("'messages' must be a list in the prompt file")
+        raise TypeError("'messages' must be a list in the prompt file")
 
     validated: list[dict[str, str]] = []
     for idx, item in enumerate(messages):
         if not isinstance(item, dict):
-            raise ValueError(f"message at index {idx} must be a mapping/dict")
+            raise TypeError(f"message at index {idx} must be a mapping/dict")
 
         role = item.get("role")
         content = item.get("content")
 
         if not isinstance(role, str) or not isinstance(content, str):
-            raise ValueError(
+            raise TypeError(
                 f"message at index {idx} must contain string 'role' and 'content'"
             )
 

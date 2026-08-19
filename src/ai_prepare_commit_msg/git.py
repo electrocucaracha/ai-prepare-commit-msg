@@ -17,7 +17,6 @@
 
 import logging
 from pathlib import Path
-from typing import Union
 
 from git import InvalidGitRepositoryError, NoSuchPathError, Repo
 
@@ -30,7 +29,7 @@ class GitRepository:
     This wraps a ``git.Repo`` and provides helpers used by the CLI.
     """
 
-    def __init__(self, path: Union[str, Path] = ".") -> None:
+    def __init__(self, path: str | Path = ".") -> None:
         """Initialize the GitRepository object.
 
         Args:
