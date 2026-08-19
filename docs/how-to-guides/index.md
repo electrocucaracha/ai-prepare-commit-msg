@@ -8,7 +8,6 @@ Goal-oriented recipes for common tasks with `ai-prepare-commit-msg`.
 Each guide assumes you have already installed the hook;
 see [How to install](how-to-install.md) if you have not.
 
-| Guide                               | Use when you need to…                  |
-| ----------------------------------- | -------------------------------------- |
-| [How to install](how-to-install.md) | Add the hook to a repository           |
-| [How to use](how-to-use.md)         | Generate and finalize a commit message |
+| Guide                               | Use when you need to…        |
+| ----------------------------------- | ---------------------------- |
+| [How to install](how-to-install.md) | Add the hook to a repository |

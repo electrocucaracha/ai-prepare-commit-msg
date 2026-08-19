@@ -66,5 +66,5 @@ then save and close the editor.
 
 ## Next Step
 
-Continue with [How to use](../how-to-guides/how-to-use.md)
-to learn repeatable daily usage.
+Use the [Configuration reference](../references/configuration.md)
+to tune the hook for your workflow.

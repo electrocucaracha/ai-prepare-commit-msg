@@ -19,11 +19,12 @@ or CI.
 
 ### Core variables
 
-| Variable                 | Description                             |
-| ------------------------ | --------------------------------------- |
-| `LITELLM_PROXY_MODEL`    | LiteLLM model ID for commit generation. |
-| `LITELLM_PROXY_API_BASE` | LiteLLM proxy base URL.                 |
-| `LITELLM_PROXY_API_KEY`  | LiteLLM proxy API key, if required.     |
+| Variable                         | Description                                                                                                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LITELLM_PROXY_MODEL`            | LiteLLM model ID for commit generation.                                                                                                                           |
+| `LITELLM_PROXY_API_BASE`         | LiteLLM proxy base URL.                                                                                                                                           |
+| `LITELLM_PROXY_API_KEY`          | LiteLLM proxy API key, if required.                                                                                                                               |
+| `AI_PREPARE_COMMIT_AUTO_APPROVE` | Skip the `[Y/n]` confirmation and write the generated message directly. Required for commits made without a controlling terminal, such as CI or scripted commits. |
 
 ### Provider-specific keys
 
@@ -54,11 +55,14 @@ set the matching API key:
 
 ## CLI Options
 
-| Option          | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `--model`       | Model ID. Overrides `LITELLM_PROXY_MODEL`.               |
-| `--prompt-file` | YAML prompt file path. Default is `prompts/default.yml`. |
-| `--log-level`   | Logging level. Default is `WARNING`.                     |
+| Option           | Description                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--model`        | Model ID. Overrides `LITELLM_PROXY_MODEL`.                                                                 |
+| `--prompt-file`  | YAML prompt file path. Default is `prompts/default.yml`.                                                   |
+| `--log-level`    | Logging level. Default is `WARNING`.                                                                       |
+| `--retry`        | Maximum attempts when the generated message is empty. Default is `5`.                                      |
+| `--retry-sleep`  | Seconds to wait between retries. Default is `3.0`.                                                         |
+| `--auto-approve` | Skip confirmation and write the generated message immediately. Overrides `AI_PREPARE_COMMIT_AUTO_APPROVE`. |
 
 The package exposes a `prepare-commit` console script:
 
@@ -98,5 +102,4 @@ export OPENAI_BASE_URL="https://your_host/v1"
 ## Related
 
 - [How to install](../how-to-guides/how-to-install.md)
-- [How to use](../how-to-guides/how-to-use.md)
 - [Reference index](index.md)

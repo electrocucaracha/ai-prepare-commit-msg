@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0">
+  <diagram name="Install and run">
+    <mxGraphModel dx="1100" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="Repository&#xa;+ staged change" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="270" width="160" height="70" as="geometry" /></mxCell>
+        <mxCell id="3" value="Add hook to&#xa;.pre-commit-config.yaml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="270" y="40" width="190" height="70" as="geometry" /></mxCell>
+        <mxCell id="4" value="uvx pre-commit install&#xa;--hook-type prepare-commit-msg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="270" y="270" width="190" height="70" as="geometry" /></mxCell>
+        <mxCell id="5" value="Export model&#xa;and provider settings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1"><mxGeometry x="270" y="500" width="190" height="70" as="geometry" /></mxCell>
+        <mxCell id="6" value="git commit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="550" y="270" width="160" height="70" as="geometry" /></mxCell>
+        <mxCell id="7" value="Controlling terminal?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="820" y="230" width="180" height="90" as="geometry" /></mxCell>
+        <mxCell id="8" value="Review draft&#xa;Press Enter / Y / N&#xa;or edit in editor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="820" y="40" width="180" height="80" as="geometry" /></mxCell>
+        <mxCell id="9" value="Set AI_PREPARE_COMMIT_AUTO_APPROVE=1&#xa;for CI or scripted commits" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="1050" y="430" width="180" height="80" as="geometry" /></mxCell>
+        <mxCell id="10" value="Commit message&#xa;written and commit continues" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="820" y="620" width="200" height="80" as="geometry" /></mxCell>
+        <mxCell id="11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="2" target="4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="2" target="5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="13" value="config" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="14" value="installed" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="4" target="6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="5" target="6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="16" value="start" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="6" target="7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="17" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="7" target="8"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="18" value="no" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="7" target="9"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="8" target="10"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="9" target="10"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
