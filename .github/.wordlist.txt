@@ -202,7 +202,7 @@ OpenStack
 OpenStack's
 oversized
 pathlib
-png
+PNG
 posi
 pre
 preflight
@@ -219,7 +219,7 @@ PyYAML
 reada
 Readme
 Readme
-repo
+repository
 repos
 repository
 reviewdog
