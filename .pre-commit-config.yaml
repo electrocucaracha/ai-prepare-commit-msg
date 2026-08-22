@@ -25,7 +25,7 @@ repos:
     hooks:
       - id: black
   - repo: https://github.com/PyCQA/isort
-    rev: 9.0.0b2
+    rev: 9.0.0b5
     hooks:
       - id: isort
         name: isort (python)
@@ -34,7 +34,7 @@ repos:
     hooks:
       - id: pyupgrade
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.16.3"
+    rev: "v0.16.4"
     hooks:
       - id: ruff
         args: [--fix]
