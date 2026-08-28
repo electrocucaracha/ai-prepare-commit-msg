@@ -1,0 +1,77 @@
+# SPDX-license-identifier: Apache-2.0
+##############################################################################
+# Copyright (c) 2026
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Apache License, Version 2.0
+# which accompanies this distribution, and is available at
+# http://www.apache.org/licenses/LICENSE-2.0
+##############################################################################
+name: Release with AI Changelog
+# yamllint disable-line rule:truthy
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure Git identity and authentication
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: git fetch origin refs/notes/ai-changelog:refs/notes/ai-changelog || true
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+      - uses: ai-action/setup-ollama@3f581ee292df757e21de2bcb3b573bd8a44f198d # v2.0.71
+      - name: Generate CHANGELOG.md
+        run: |
+          uvx --from git+https://github.com/electrocucaracha/ai-changelog.git ai-changelog --create-semver-tags .
+          make fmt
+      - name: Resolve latest semantic tag
+        id: release_tag
+        run: |
+          TAG="$(git tag --sort=-v:refname | head -n 1)"
+          if [ -z "$TAG" ]; then
+              echo "No semantic version tag found after changelog generation"
+              exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          awk '/^## / { count++ } count == 3 { exit } { print }' CHANGELOG.md > body.md
+      - name: Commit and push changelog, tags and notes
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: |
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "docs(changelog): update release notes for ${TAG}"
+          git push origin "HEAD:${BRANCH}" --follow-tags
+
+          # Best-effort push of all tags: ignore errors for tags that already exist remotely.
+          git push origin --tags || true
+
+          # Ensure the release tag is present on origin (ignore if it already exists).
+          git push origin "refs/tags/${TAG}:refs/tags/${TAG}" || true
+
+          # Validate the release tag exists remotely before creating the GitHub release.
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null; then
+              echo "Release tag ${TAG} is not available on origin"
+              exit 1
+          fi
+          git push origin refs/notes/ai-changelog
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: |
+          gh release create "${TAG}" \
+            --notes-file body.md \
+            --verify-tag
