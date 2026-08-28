@@ -19,7 +19,10 @@ Utilities to load prompt messages, compress them with Headroom, call a
 LiteLLM-style completion API, and extract text from model responses. The
 public API is ``get_commit_msg`` which returns the concatenated textual
 output from the model's choices, plus ``get_compression_stats`` which
-reports how many prompt tokens Headroom saved.
+reports how many prompt tokens Headroom saved. When a diff is too large for
+the model's context window even after Headroom compression, a map-reduce
+summarization chain (``_summarize_diff_in_chunks``) is used to shrink the
+diff before falling back to ``OVERSIZED_DIFF_WARNING``.
 """
 
 import concurrent.futures
@@ -44,6 +47,24 @@ MAX_PROMPT_TOKENS = 120_000
 OVERSIZED_DIFF_WARNING = (
     "Warning: staged diff is too large for AI commit message generation. "
     "Skipping the LLM request. Please write the commit message manually."
+)
+
+# Summarization chain: chunks are sized well below MAX_PROMPT_TOKENS so the
+# per-chunk summarization request (plus its system prompt) stays in budget.
+SUMMARIZATION_CHUNK_TOKENS = MAX_PROMPT_TOKENS // 6
+MAX_SUMMARIZATION_ROUNDS = 3
+_FILE_DIFF_MARKER = "diff --git "
+
+_MAP_SUMMARY_SYSTEM_PROMPT = (
+    "You summarize part of a git diff so a later step can write a concise "
+    "conventional commit message from your summary. List the files touched "
+    "and, for each, the nature of the change (what/why) as short bullet "
+    "points. Do not include code or diff syntax in your answer."
+)
+_REDUCE_SUMMARY_SYSTEM_PROMPT = (
+    "Combine the following diff-chunk summaries into a single, concise "
+    "overview of all the changes. Preserve the most important file-level "
+    "detail while removing redundancy."
 )
 
 
@@ -227,6 +248,159 @@ def _estimate_prompt_tokens(model: str, messages: list[dict[str, str]]) -> int |
     return int(prompt_tokens)
 
 
+def _count_tokens(model: str, text: str) -> int:
+    """Estimate the token count of plain text, falling back to a heuristic."""
+    # Token estimation is an optional safeguard and must never block generation.
+    # pylint: disable=broad-exception-caught
+    try:
+        return int(litellm.token_counter(model=model, text=text))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Unable to count tokens for model '%s': %s", model, exc)
+        return len(text) // 4  # rough heuristic: ~4 characters per token
+    # pylint: enable=broad-exception-caught
+
+
+def _split_diff_by_file(diff_message: str) -> list[str]:
+    """Split a unified diff into per-file sections, preserving the marker."""
+    parts = diff_message.split(_FILE_DIFF_MARKER)
+    if len(parts) <= 1:
+        return [diff_message] if diff_message else []
+
+    sections = [parts[0]] if parts[0] else []
+    sections.extend(_FILE_DIFF_MARKER + part for part in parts[1:])
+    return sections
+
+
+def _split_text_by_token_budget(
+    model: str, text: str, max_chunk_tokens: int
+) -> list[str]:
+    """Split ``text`` into chunks of at most ``max_chunk_tokens`` tokens."""
+    lines = text.splitlines(keepends=True)
+    chunks: list[str] = []
+    current: list[str] = []
+    current_tokens = 0
+
+    for line in lines:
+        line_tokens = _count_tokens(model, line)
+        if current and current_tokens + line_tokens > max_chunk_tokens:
+            chunks.append("".join(current))
+            current = []
+            current_tokens = 0
+        current.append(line)
+        current_tokens += line_tokens
+
+    if current:
+        chunks.append("".join(current))
+
+    return chunks
+
+
+def _split_diff_into_chunks(
+    model: str, diff_message: str, max_chunk_tokens: int
+) -> list[str]:
+    """Split a diff into chunks bounded by ``max_chunk_tokens``.
+
+    Chunks are grouped along file boundaries where possible; a single file
+    section that alone exceeds the budget is further split by line.
+    """
+    chunks: list[str] = []
+    current_parts: list[str] = []
+    current_tokens = 0
+
+    for section in _split_diff_by_file(diff_message):
+        section_tokens = _count_tokens(model, section)
+
+        if section_tokens > max_chunk_tokens:
+            if current_parts:
+                chunks.append("".join(current_parts))
+                current_parts = []
+                current_tokens = 0
+            chunks.extend(_split_text_by_token_budget(model, section, max_chunk_tokens))
+            continue
+
+        if current_parts and current_tokens + section_tokens > max_chunk_tokens:
+            chunks.append("".join(current_parts))
+            current_parts = []
+            current_tokens = 0
+
+        current_parts.append(section)
+        current_tokens += section_tokens
+
+    if current_parts:
+        chunks.append("".join(current_parts))
+
+    return chunks
+
+
+def _summarize_text(model: str, system_prompt: str, content: str) -> str:
+    """Ask the model to summarize ``content``; return "" on failure."""
+    # Summarization is a best-effort compression step and must never raise.
+    # pylint: disable=broad-exception-caught
+    try:
+        response = litellm.completion(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content},
+            ],
+            temperature=0.1,
+            max_tokens=512,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Summarization request failed: %s", exc)
+        return ""
+    # pylint: enable=broad-exception-caught
+
+    choices = getattr(response, "choices", []) or []
+    contents = (_extract_choice_content(c) for c in choices)
+    return "\n".join(filter(None, (s.strip() for s in contents))).strip()
+
+
+def _summarize_diff_in_chunks(model: str, diff_message: str) -> str:
+    """Compress an oversized diff via a map-reduce summarization chain.
+
+    The diff is split into token-bounded chunks which are summarized
+    independently (map), then the summaries are combined and, if still too
+    large, re-summarized (reduce) across a bounded number of rounds. Returns
+    the best available compression; the original text if no round manages
+    to produce any summary output.
+    """
+    text = diff_message
+
+    for round_num in range(MAX_SUMMARIZATION_ROUNDS):
+        chunks = _split_diff_into_chunks(model, text, SUMMARIZATION_CHUNK_TOKENS)
+        if len(chunks) <= 1:
+            break
+
+        summaries = [
+            summary
+            for chunk in chunks
+            if (summary := _summarize_text(model, _MAP_SUMMARY_SYSTEM_PROMPT, chunk))
+        ]
+        if not summaries:
+            logger.warning("Summarization chain produced no output; giving up.")
+            break
+
+        combined = "\n".join(summaries)
+        logger.debug(
+            "Summarization round %d: %d chunk(s) -> %d chars",
+            round_num + 1,
+            len(chunks),
+            len(combined),
+        )
+
+        if _count_tokens(model, combined) <= SUMMARIZATION_CHUNK_TOKENS:
+            text = (
+                _summarize_text(model, _REDUCE_SUMMARY_SYSTEM_PROMPT, combined)
+                or combined
+            )
+            break
+
+        text = combined
+
+    return text
+
+
 def _has_oversized_prompt_error(error: Exception) -> bool:
     """Return ``True`` when an exception indicates the prompt is too large."""
     message = str(error).lower()
@@ -251,7 +425,22 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     prompt_tokens = _estimate_prompt_tokens(model, messages)
     if prompt_tokens is not None and prompt_tokens > MAX_PROMPT_TOKENS:
         logger.warning(
-            "Skipping LLM call: estimated prompt token count %d exceeds safe limit %d.",
+            "Estimated prompt token count %d exceeds safe limit %d; "
+            "attempting summarization chain.",
+            prompt_tokens,
+            MAX_PROMPT_TOKENS,
+        )
+        loaded[-1] = {
+            "role": "user",
+            "content": _summarize_diff_in_chunks(model, diff_message),
+        }
+        messages = _compress_messages(model, loaded)
+        prompt_tokens = _estimate_prompt_tokens(model, messages)
+
+    if prompt_tokens is not None and prompt_tokens > MAX_PROMPT_TOKENS:
+        logger.warning(
+            "Skipping LLM call: prompt still %d tokens after summarization, "
+            "exceeding safe limit %d.",
             prompt_tokens,
             MAX_PROMPT_TOKENS,
         )
