@@ -29,6 +29,7 @@ import concurrent.futures
 import logging
 import re
 from dataclasses import dataclass
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,8 @@ except ImportError:  # pragma: no cover - exercised via integration environment
     headroom_compress = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+CUSTOM_PROVIDER_ENTRY_POINT_GROUP = "ai_prepare_commit_msg.litellm_providers"
 
 MAX_PROMPT_TOKENS = 120_000
 OVERSIZED_DIFF_WARNING = (
@@ -158,6 +161,61 @@ _COMPRESSION_STATS = CompressionStats()
 def get_compression_stats() -> CompressionStats:
     """Return the Headroom metrics accumulated in this process."""
     return _COMPRESSION_STATS
+
+
+def load_custom_providers() -> None:
+    """Register LiteLLM custom providers advertised through entry points.
+
+    Any installed package declaring an entry point in the
+    ``ai_prepare_commit_msg.litellm_providers`` group is loaded and added to
+    :attr:`litellm.custom_provider_map`, so the model string
+    ``<entry-point-name>/<model>`` routes to that handler. Registration is
+    idempotent, and a plugin that fails to load is logged and skipped so a
+    broken plugin never blocks commit message generation.
+    """
+    discovered = list(entry_points(group=CUSTOM_PROVIDER_ENTRY_POINT_GROUP))
+    if not discovered:
+        return
+
+    if not isinstance(getattr(litellm, "custom_provider_map", None), list):
+        litellm.custom_provider_map = []
+
+    registered = {
+        entry["provider"]
+        for entry in litellm.custom_provider_map
+        if isinstance(entry, dict) and "provider" in entry
+    }
+
+    # A plugin is third-party code, so any import or construction error here
+    # must degrade to a warning instead of aborting the git hook.
+    # pylint: disable=broad-exception-caught
+    for entry_point in discovered:
+        if entry_point.name in registered:
+            logger.debug(
+                "LiteLLM custom provider '%s' is already registered; skipping",
+                entry_point.name,
+            )
+            continue
+
+        try:
+            handler_cls = entry_point.load()
+            litellm.custom_provider_map.append(
+                {"provider": entry_point.name, "custom_handler": handler_cls()}
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to load LiteLLM custom provider '%s' from '%s': %s",
+                entry_point.name,
+                entry_point.value,
+                exc,
+            )
+        else:
+            logger.info(
+                "Registered LiteLLM custom provider '%s' from '%s'",
+                entry_point.name,
+                entry_point.value,
+            )
+    # pylint: enable=broad-exception-caught
 
 
 def _compress_messages(
@@ -564,6 +622,8 @@ def _has_oversized_prompt_error(error: Exception) -> bool:
 
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
+    load_custom_providers()
+
     loaded: list[dict[str, str]] = _load_prompt_messages(prompt_file)
     logger.debug("Loaded %d prompt messages from %s", len(loaded), prompt_file)
 

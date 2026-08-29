@@ -34,6 +34,7 @@ While you can write commit messages manually, AI Prepare Commit Message makes th
 - **Fit naturally into Git** — Integrate directly with Git's prepare-commit-msg lifecycle without requiring a separate application or command.
 - **Stay in control** — Generated messages are drafts. Review, edit, or replace them before the commit is finalized.
 - **Use different AI providers** — LiteLLM provides a unified interface for different models and providers, allowing you to change models through configuration.
+- **Plug in your own provider** — Register a custom LLM backend, such as a corporate gateway or a self-hosted server, through a Python entry point without modifying this project.
 - **Centralize commit conventions** — Define message structure, tone, and formatting rules in prompts instead of relying on every contributor to remember them.
 - **Reduce cognitive overhead** — Spend less time translating code changes into prose and more time focusing on the work itself.
   Improve project history — Clear and consistent commit messages make Git history easier to read, search, review, and understand.

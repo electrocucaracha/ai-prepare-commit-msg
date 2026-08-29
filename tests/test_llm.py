@@ -424,3 +424,81 @@ def test__load_prompt_messages_file_handling(tmp_path):
     p6.write_text("messages:\n  - role: system\n    content: hi")
     msgs = llm._load_prompt_messages(p6)
     assert isinstance(msgs, list) and msgs[0]["role"] == "system"
+
+
+class _FakeHandler:
+    """Stand-in for a third-party LiteLLM custom handler."""
+
+
+def _patch_entry_points(monkeypatch, entries):
+    monkeypatch.setattr(llm.litellm, "custom_provider_map", [], raising=False)
+    monkeypatch.setattr(
+        llm,
+        "entry_points",
+        lambda *, group: (
+            list(entries) if group == llm.CUSTOM_PROVIDER_ENTRY_POINT_GROUP else []
+        ),
+    )
+
+
+def test_load_custom_providers_registers_discovered_provider(monkeypatch):
+    """An entry-point provider is added to LiteLLM's custom provider map."""
+    entry = SimpleNamespace(
+        name="my_provider",
+        value="mypkg.llm:Handler",
+        load=lambda: _FakeHandler,
+    )
+    _patch_entry_points(monkeypatch, [entry])
+
+    llm.load_custom_providers()
+
+    assert any(
+        item["provider"] == "my_provider"
+        and isinstance(item["custom_handler"], _FakeHandler)
+        for item in llm.litellm.custom_provider_map
+    )
+
+
+def test_load_custom_providers_is_idempotent(monkeypatch):
+    """Repeated calls must not register the same provider twice."""
+    entry = SimpleNamespace(
+        name="my_provider",
+        value="mypkg.llm:Handler",
+        load=lambda: _FakeHandler,
+    )
+    _patch_entry_points(monkeypatch, [entry])
+
+    llm.load_custom_providers()
+    llm.load_custom_providers()
+
+    matches = [
+        item
+        for item in llm.litellm.custom_provider_map
+        if item.get("provider") == "my_provider"
+    ]
+    assert len(matches) == 1
+
+
+def test_load_custom_providers_warns_on_load_failure(monkeypatch, caplog):
+    """A broken entry point logs a warning instead of raising."""
+
+    def _boom():
+        raise ImportError("missing dep")
+
+    entry = SimpleNamespace(name="bad_provider", value="badpkg.llm:Bad", load=_boom)
+    _patch_entry_points(monkeypatch, [entry])
+
+    with caplog.at_level("WARNING", logger=llm.__name__):
+        llm.load_custom_providers()
+
+    assert llm.litellm.custom_provider_map == []
+    assert any("bad_provider" in record.getMessage() for record in caplog.records)
+
+
+def test_load_custom_providers_without_entry_points(monkeypatch):
+    """No providers registered means the map is left untouched."""
+    _patch_entry_points(monkeypatch, [])
+
+    llm.load_custom_providers()
+
+    assert llm.litellm.custom_provider_map == []
