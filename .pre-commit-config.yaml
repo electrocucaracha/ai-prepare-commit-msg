@@ -52,7 +52,7 @@ repos:
     hooks:
       - id: ai-prepare-commit
         name: generate commit message with AI
-        entry: prepare-commit --log-level DEBUG
+        entry: uv run prepare-commit --log-level DEBUG
         verbose: true
         log_file: /tmp/prepare-commit.log
         language: python
