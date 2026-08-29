@@ -361,7 +361,7 @@ def test_reduce_summaries_collapses_until_within_budget(monkeypatch):
 
     calls: list[str] = []
 
-    def fake_summarize(_model, system_prompt, content, *_args):
+    def fake_summarize(_model, system_prompt, *_args):
         calls.append(system_prompt)
         return "reduced"
 
