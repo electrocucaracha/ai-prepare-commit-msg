@@ -55,6 +55,6 @@ repos:
         entry: uv run prepare-commit --log-level DEBUG
         verbose: true
         log_file: /tmp/prepare-commit.log
-        language: python
+        language: system
         stages:
           - prepare-commit-msg
