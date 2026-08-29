@@ -9,6 +9,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.9.2] - 2026-08-28
+
+### Changed
+
+- Clarified and streamlined the documentation to improve user discoverability and experience by providing more comprehensive guides and explanations on advanced features, removal steps, and configuration options. [78152d64](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/78152d6462d00fa23e66bbf9f789ea9e18459391)
+
+## [7.9.1] - 2026-08-28
+
+### Changed
+
+- Optimized the pre-commit hook to execute in a consistent and isolated Python environment, reducing dependency conflicts and improving reproducibility across different developer setups. [e11c1fae](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e11c1faef258695d3530bd274cd424d5a8536c1a)
+
+## [7.9.0] - 2026-08-28
+
+### Added
+
+- Improved diff summarization preserves actionable context for human reviewers by labeling summaries by file path and skipping low-signal files, reducing hallucinated or omitted changes. [211c0af4](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/211c0af443982c1eedbd62b6e389354408dcb7ee)
+
+## [7.8.0] - 2026-08-27
+
+### Added
+
+- Automated release management has been enabled, streamlining the release process with consistent changelog formatting and generating GitHub releases with the latest changelog section as release notes. [8c2cfee1](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8c2cfee177b637c9483d9ce691648872a04dccbb)
+
+## [7.7.1] - 2026-08-27
+
+### Changed
+
+- Upgraded several pre-commit hooks and Python dependencies to their latest compatible versions, ensuring continued support for new Python versions and features. [e08d4d89](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e08d4d89be00fdbde8167b1e8eeb854783bc950f)
+
+## [7.7.0] - 2026-08-27
+
+### Added
+
+- Enabled a map-reduce summarization chain for oversized diffs to automatically shrink them before falling back to the oversized diff warning, improving usability for large diffs and reducing manual intervention. [3ba8c5f6](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/3ba8c5f6c60f18601a5e674bb73b776f2b4bb375)
+
+## [7.6.1] - 2026-08-21
+
+### Changed
+
+- Simplified the ignore array in the .jscpd.json file to a single line, improving readability and consistency with the rest of the file. [d6648537](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/d6648537015d1aa8e1e87c919646fd8f7132bfcf)
+
+## [7.6.0] - 2026-08-21
+
+### Added
+
+- Optimized code duplication checks by excluding Markdown files, reducing noise in reports and focusing analysis on source code without impacting build or runtime behavior. [06e7574d](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/06e7574d5e403e90db7b89b77dec02eee68ae6b7)
+
+## [7.5.0] - 2026-08-21
+
+### Added
+
+- Optimized textlint checks to exclude irrelevant files, improving the signal-to-noise ratio in linting results by focusing on relevant documentation and source files. [b82e1c59](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/b82e1c59226893b0d1de9adffc59e2bda83331a2)
+
+## [7.4.1] - 2026-08-21
+
+### Changed
+
+- Dependencies were updated to their latest versions, including uv and aiohttp, to improve performance and compatibility. [71334585](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/71334585f40f1b5931e21ffe574ebbb0730f0e5a)
+
+## [7.4.0] - 2026-08-21
+
+### Added
+
+- Enabled project sponsorship links, allowing users to support ongoing development via GitHub Sponsors and Buy Me a Coffee, with no functional changes to the codebase. [12d32ad0](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/12d32ad028cef66d695bc6f702e62168edd19e57)
+
+## [7.3.0] - 2026-08-18
+
+### Added
+
+- Optimized LLM prompts by applying Headroom prompt compression, reducing token usage and improving efficiency, and introduced metrics to track token savings and requests. [f8446a60](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/f8446a60634d0f159f05f5af45f9e43bff403c3d)
+
+## [7.2.5] - 2026-08-18
+
+### Changed
+
+- Optimized documentation for advanced usage, provider switching, and large-diff handling by adding a new explanation for Headroom prompt compression, updating the "How it works" article, clarifying installation instructions, and expanding configuration options. [cf0a7a13](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/cf0a7a13903f0305bee2913834f1c0cfe27344bf)
+
+## [7.2.4] - 2026-08-15
+
+### Changed
+
+- Enhanced the readme to provide a clear and compelling rationale for using AI Prepare Commit Message, highlighting its benefits of saving time, improving consistency, and streamlining integration with Git workflows. [125a6ebb](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/125a6ebb328cf117601d2f692ed352e4824045a5)
+
+## [7.2.3] - 2026-08-15
+
+### Changed
+
+- Modernized versions files to reflect the latest dependencies, including aiohttp, aiosignal, and uv, requiring users to update their versions accordingly. [052c79b9](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/052c79b99ee8cca6e841e0e610d6bf9500a9f2de)
+
+## [7.2.2] - 2026-08-12
+
+### Changed
+
+- Expanded the custom dictionary to improve spell checking accuracy and support for project-specific terminology, introducing new terms and updating capitalization for several entries without introducing breaking behavior or requiring migration steps. [c81f7449](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c81f7449d4298dd496197334c8d956302be2d3ea)
+
+## [7.2.1] - 2026-08-12
+
+### Changed
+
+- Expanded the changelog to provide detailed release history, reorganizing sections for clarity and completeness, and restoring missing entries for patch versions. [3e89d8f9](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/3e89d8f93eb0f2373e846306865011f63a765755)
+
+## [7.2.0] - 2026-08-12
+
+### Added
+
+- Enabled automatic textlint integration with the terminology rule for consistent terminology across documentation and code comments, eliminating the need for sudo in node_modules cleanup and streamlining formatting steps. [49fc4ffb](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/49fc4ffb239c7380f7d89f3a73ca80bba61fd95c)
+
 ## [7.1.0] - 2026-08-06
 
 ### Added
