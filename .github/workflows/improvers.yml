@@ -6,11 +6,18 @@
 # which accompanies this distribution, and is available at
 # http://www.apache.org/licenses/LICENSE-2.0
 ##############################################################################
-name: Release with AI Changelog
+name: "Maintenance: Go Quality Improvements"
 # yamllint disable-line rule:truthy
 on:
+  schedule:
+    - cron: "0 0 15 * *"
   workflow_dispatch:
+permissions: read-all
 jobs:
-  release:
-    uses: electrocucaracha/gh-workflows/.github/workflows/release.yml@main
+  improvers:
+    name: Run Quality Improvers
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: electrocucaracha/gh-workflows/.github/workflows/improvers.yml@main
     secrets: inherit

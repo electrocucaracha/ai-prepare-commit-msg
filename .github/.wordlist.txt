@@ -30,6 +30,7 @@ attrs
 auth
 bab
 bae
+backend
 bafadd
 bafc
 bba
@@ -93,6 +94,7 @@ configs
 ContentRouter
 contrac
 cp
+CustomLLM
 CVE
 CVEs
 daa
@@ -116,6 +118,7 @@ dddc
 ded
 dedb
 deee
+def
 dev
 devcontainer
 df
@@ -198,6 +201,7 @@ href
 https
 huggingface
 img
+importlib
 isort
 Isort
 iteratively
@@ -205,6 +209,7 @@ js
 jscpd
 JSON
 keepachangelog
+kwargs
 LanguageModel
 laobi
 Lifecycle
@@ -216,11 +221,15 @@ lockfiles
 Makefile
 markdownlint
 Markdownlint
+metadata
 migrat
+ModelResponse
 Mypy
+mypackage
 nav
 num
 ol
+ollama
 OpenAI
 opensource
 OpenStack
@@ -228,6 +237,7 @@ OpenStack's
 oversized
 pathlib
 png
+plugin
 posi
 pre
 preflight
@@ -276,6 +286,8 @@ tty
 txt
 untyped
 urllib
+utils
+uv
 uvx
 valida
 vendored

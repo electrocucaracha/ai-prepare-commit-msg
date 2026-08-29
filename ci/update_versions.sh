@@ -52,7 +52,11 @@ exceptions=('reviewdog/action-misspell' 'actions/attest-build-provenance' 'Grant
 # Remove an entry only once the underlying issue is confirmed resolved.
 # austenstone/copilot-cli: v3.0+ depends on actions/setup-copilot@v0 which does
 # not yet exist publicly; keep at v2.0 until that action is released.
-readonly pinned_actions=('austenstone/copilot-cli')
+# electrocucaracha/gh-workflows/.github/workflows/*.yml: reusable workflow
+# refs, not tagged actions; resolve_action_commit_hash treats the full path as
+# an owner/repo and would corrupt the @main refs, so keep them pinned until the
+# workflow path is handled separately or the upstream repo cuts version tags.
+readonly pinned_actions=('austenstone/copilot-cli' 'electrocucaracha/gh-workflows/.github/workflows/release.yml' 'electrocucaracha/gh-workflows/.github/workflows/linter.yml' 'electrocucaracha/gh-workflows/.github/workflows/update.yml' 'electrocucaracha/gh-workflows/.github/workflows/improvers.yml')
 for action in $gh_actions; do
     is_pinned=false
     for pinned in "${pinned_actions[@]}"; do
