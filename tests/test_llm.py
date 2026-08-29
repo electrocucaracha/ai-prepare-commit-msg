@@ -108,7 +108,7 @@ def test_get_commit_msg_skips_oversized_diff_when_summarization_does_not_help(
     monkeypatch.setattr(
         llm, "_estimate_prompt_tokens", lambda *_args: llm.MAX_PROMPT_TOKENS + 1
     )
-    monkeypatch.setattr(llm, "_summarize_diff_in_chunks", lambda _model, diff: diff)
+    monkeypatch.setattr(llm, "_summarize_diff", lambda _model, diff: diff)
 
     def fail_completion(**_kwargs):
         raise AssertionError("litellm.completion should not be called")
@@ -137,7 +137,7 @@ def test_get_commit_msg_uses_summarization_chain_for_oversized_diff(monkeypatch)
         summarize_calls.append(diff)
         return "summarized diff"
 
-    monkeypatch.setattr(llm, "_summarize_diff_in_chunks", fake_summarize)
+    monkeypatch.setattr(llm, "_summarize_diff", fake_summarize)
 
     seen_messages: list[list[dict[str, str]]] = []
 
@@ -249,26 +249,79 @@ def test_split_diff_by_file():
     assert not llm._split_diff_by_file("")
 
 
-def test_split_diff_into_chunks_groups_by_token_budget(monkeypatch):
-    """Chunks stay under the budget and group whole file sections together."""
-    monkeypatch.setattr(llm, "_count_tokens", lambda _model, text: len(text))
-
-    diff = "diff --git a b\nfoodiff --git c d\nbardiff --git e f\nbaz"
-    chunks = llm._split_diff_into_chunks("mymodel", diff, max_chunk_tokens=20)
-
-    assert "".join(chunks) == diff
-    assert all(len(chunk) <= 20 for chunk in chunks)
-
-
 def test_split_diff_into_chunks_splits_oversized_section(monkeypatch):
     """A single file section larger than the budget is split by line."""
     monkeypatch.setattr(llm, "_count_tokens", lambda _model, text: len(text))
 
     diff = "line one\nline two\nline six\n"
-    chunks = llm._split_diff_into_chunks("mymodel", diff, max_chunk_tokens=10)
+    chunks = llm._split_text_by_token_budget("mymodel", diff, max_chunk_tokens=10)
 
     assert "".join(chunks) == diff
     assert all(len(chunk) <= 10 for chunk in chunks)
+
+
+def test_file_path_and_change_stat_are_derived_from_headers():
+    """File identity and change type come from the diff, not the model."""
+    added = "diff --git a/src/new.py b/src/new.py\nnew file mode 100644\n+one\n"
+    renamed = "diff --git a/old.py b/moved.py\nrename from old.py\nrename to moved.py\n"
+
+    assert llm._file_path_from_section(added) == "src/new.py"
+    assert llm._file_change_stat("src/new.py", added) == "- src/new.py (added, +1/-0)"
+    assert llm._file_change_stat("moved.py", renamed).startswith("- moved.py (renamed,")
+
+
+def test_low_signal_files_are_reported_without_an_llm_call(monkeypatch):
+    """Generated files appear in the skeleton but are never summarized."""
+    diff = (
+        "diff --git a/poetry.lock b/poetry.lock\n+lock\n"
+        "diff --git a/src/app.py b/src/app.py\n+real change\n"
+    )
+    analyzed: list[str] = []
+
+    def fake_map(_model, sections):
+        analyzed.extend(path for path, _ in sections)
+        return ["- src/app.py: adds a real change"]
+
+    monkeypatch.setattr(llm, "_map_file_summaries", fake_map)
+    monkeypatch.setattr(
+        llm, "_reduce_summaries", lambda _model, notes: "\n".join(notes)
+    )
+
+    result = llm._summarize_diff("mymodel", diff)
+
+    assert analyzed == ["src/app.py"]
+    assert "poetry.lock" in result
+    assert "[generated; not analyzed]" in result
+    assert "adds a real change" in result
+
+
+def test_map_file_summaries_labels_each_file_separately(monkeypatch):
+    """Every file gets its own summarization call, labelled by path."""
+    monkeypatch.setattr(llm, "_count_tokens", lambda *_args: 1)
+
+    seen: list[str] = []
+
+    def fake_summarize(_model, _system_prompt, content, _max_tokens=512):
+        seen.append(content)
+        return "note"
+
+    monkeypatch.setattr(llm, "_summarize_text", fake_summarize)
+
+    summaries = llm._map_file_summaries(
+        "mymodel", [("a.py", "diff a"), ("b.py", "diff b")]
+    )
+
+    assert summaries == ["- a.py: note", "- b.py: note"]
+    assert len(seen) == 2
+    assert seen[0].startswith("File: a.py")
+
+
+def test_summarize_diff_returns_original_when_no_summaries(monkeypatch):
+    """The original diff is kept if the map step produces no summaries."""
+    monkeypatch.setattr(llm, "_map_file_summaries", lambda _model, _sections: [])
+
+    diff = "diff --git a/a.py b/a.py\n+x\n"
+    assert llm._summarize_diff("mymodel", diff) == diff
 
 
 def test_summarize_text_returns_joined_choices(monkeypatch):
@@ -298,41 +351,36 @@ def test_summarize_text_returns_empty_on_failure(monkeypatch):
     assert llm._summarize_text("mymodel", "system prompt", "content") == ""
 
 
-def test_summarize_diff_in_chunks_maps_and_reduces(monkeypatch):
-    """Oversized diffs are chunked, summarized, then reduced to one summary."""
+def test_reduce_summaries_collapses_until_within_budget(monkeypatch):
+    """Oversized per-file notes are re-summarized before being returned."""
+    token_counts = iter([llm.SUMMARIZATION_CHUNK_TOKENS + 1, 1])
+    monkeypatch.setattr(llm, "_count_tokens", lambda *_args: next(token_counts))
     monkeypatch.setattr(
-        llm,
-        "_split_diff_into_chunks",
-        lambda _model, _diff, _budget: ["chunk-a", "chunk-b"],
+        llm, "_split_text_by_token_budget", lambda _model, text, _budget: [text]
     )
 
-    calls: list[tuple[str, str]] = []
+    calls: list[str] = []
 
-    def fake_summarize(_model, system_prompt, content):
-        calls.append((system_prompt, content))
-        if system_prompt == llm._MAP_SUMMARY_SYSTEM_PROMPT:
-            return f"summary of {content}"
-        return "final summary"
+    def fake_summarize(_model, system_prompt, content, *_args):
+        calls.append(system_prompt)
+        return "reduced"
 
     monkeypatch.setattr(llm, "_summarize_text", fake_summarize)
+
+    assert llm._reduce_summaries("mymodel", ["- a.py: one", "- b.py: two"]) == "reduced"
+    assert calls == [llm._REDUCE_SUMMARY_SYSTEM_PROMPT]
+
+
+def test_reduce_summaries_keeps_notes_within_budget(monkeypatch):
+    """Notes that already fit are returned verbatim, with no extra LLM call."""
     monkeypatch.setattr(llm, "_count_tokens", lambda *_args: 1)
 
-    result = llm._summarize_diff_in_chunks("mymodel", "big diff")
+    def fail(*_args, **_kwargs):
+        raise AssertionError("reduce should not call the model")
 
-    assert result == "final summary"
-    assert calls[0] == (llm._MAP_SUMMARY_SYSTEM_PROMPT, "chunk-a")
-    assert calls[1] == (llm._MAP_SUMMARY_SYSTEM_PROMPT, "chunk-b")
-    assert calls[2][0] == llm._REDUCE_SUMMARY_SYSTEM_PROMPT
+    monkeypatch.setattr(llm, "_summarize_text", fail)
 
-
-def test_summarize_diff_in_chunks_returns_original_when_no_summaries(monkeypatch):
-    """The original diff is kept if the map step produces no summaries."""
-    monkeypatch.setattr(
-        llm, "_split_diff_into_chunks", lambda _model, _diff, _budget: ["a", "b"]
-    )
-    monkeypatch.setattr(llm, "_summarize_text", lambda *_args: "")
-
-    assert llm._summarize_diff_in_chunks("mymodel", "big diff") == "big diff"
+    assert llm._reduce_summaries("mymodel", ["- a.py: one"]) == "- a.py: one"
 
 
 def test__load_prompt_messages_file_handling(tmp_path):

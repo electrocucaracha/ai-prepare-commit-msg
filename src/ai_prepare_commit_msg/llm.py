@@ -20,13 +20,14 @@ LiteLLM-style completion API, and extract text from model responses. The
 public API is ``get_commit_msg`` which returns the concatenated textual
 output from the model's choices, plus ``get_compression_stats`` which
 reports how many prompt tokens Headroom saved. When a diff is too large for
-the model's context window even after Headroom compression, a map-reduce
-summarization chain (``_summarize_diff_in_chunks``) is used to shrink the
+the model's context window even after Headroom compression, a per-file
+map-reduce summarization chain (``_summarize_diff``) is used to shrink the
 diff before falling back to ``OVERSIZED_DIFF_WARNING``.
 """
 
 import concurrent.futures
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -53,18 +54,42 @@ OVERSIZED_DIFF_WARNING = (
 # per-chunk summarization request (plus its system prompt) stays in budget.
 SUMMARIZATION_CHUNK_TOKENS = MAX_PROMPT_TOKENS // 6
 MAX_SUMMARIZATION_ROUNDS = 3
+MAX_SUMMARIZATION_WORKERS = 4
+SUMMARIZATION_TIMEOUT = 120  # seconds for the whole map step
 _FILE_DIFF_MARKER = "diff --git "
 
+# Machine-generated files inflate a diff without describing intent, so they are
+# reported from their diff stats instead of spending an LLM call on them.
+_LOW_SIGNAL_FILENAMES = frozenset(
+    {
+        "Cargo.lock",
+        "Gemfile.lock",
+        "composer.lock",
+        "go.sum",
+        "package-lock.json",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "uv.lock",
+        "yarn.lock",
+    }
+)
+_LOW_SIGNAL_DIRS = frozenset(
+    {".terraform", "generated", "node_modules", "third_party", "vendor"}
+)
+_LOW_SIGNAL_SUFFIXES = (".min.css", ".min.js", ".map", ".snap", ".pb.go", "_pb2.py")
+
 _MAP_SUMMARY_SYSTEM_PROMPT = (
-    "You summarize part of a git diff so a later step can write a concise "
-    "conventional commit message from your summary. List the files touched "
-    "and, for each, the nature of the change (what/why) as short bullet "
-    "points. Do not include code or diff syntax in your answer."
+    "You analyze the git diff of a single file. Reply with one to three short "
+    "bullet points describing exactly what changed and, where the diff makes "
+    "it evident, why. Name the specific functions, classes, constants, or "
+    "options that were added, removed, renamed, or modified. State only what "
+    "the diff shows and never guess at intent that is not visible. Do not "
+    "repeat the file path and do not include code or diff syntax."
 )
 _REDUCE_SUMMARY_SYSTEM_PROMPT = (
-    "Combine the following diff-chunk summaries into a single, concise "
-    "overview of all the changes. Preserve the most important file-level "
-    "detail while removing redundancy."
+    "Merge the following per-file change notes into a shorter list that still "
+    "preserves every distinct change. Group related changes together and drop "
+    "only redundancy, never detail that is unique to one file."
 )
 
 
@@ -295,44 +320,85 @@ def _split_text_by_token_budget(
     return chunks
 
 
-def _split_diff_into_chunks(
-    model: str, diff_message: str, max_chunk_tokens: int
-) -> list[str]:
-    """Split a diff into chunks bounded by ``max_chunk_tokens``.
+def _file_path_from_section(section: str) -> str:
+    """Return the post-image path from a ``diff --git`` header line.
 
-    Chunks are grouped along file boundaries where possible; a single file
-    section that alone exceeds the budget is further split by line.
+    Examples
+    --------
+    >>> _file_path_from_section('diff --git a/src/app.py b/src/app.py\\n+x')
+    'src/app.py'
+    >>> _file_path_from_section('no header here')
+    ''
+
     """
-    chunks: list[str] = []
-    current_parts: list[str] = []
-    current_tokens = 0
+    header = section.split("\n", 1)[0]
+    if not header.startswith(_FILE_DIFF_MARKER):
+        return ""
 
-    for section in _split_diff_by_file(diff_message):
-        section_tokens = _count_tokens(model, section)
-
-        if section_tokens > max_chunk_tokens:
-            if current_parts:
-                chunks.append("".join(current_parts))
-                current_parts = []
-                current_tokens = 0
-            chunks.extend(_split_text_by_token_budget(model, section, max_chunk_tokens))
-            continue
-
-        if current_parts and current_tokens + section_tokens > max_chunk_tokens:
-            chunks.append("".join(current_parts))
-            current_parts = []
-            current_tokens = 0
-
-        current_parts.append(section)
-        current_tokens += section_tokens
-
-    if current_parts:
-        chunks.append("".join(current_parts))
-
-    return chunks
+    _, separator, new_path = header[len(_FILE_DIFF_MARKER) :].partition(" b/")
+    return new_path.strip().strip('"') if separator else ""
 
 
-def _summarize_text(model: str, system_prompt: str, content: str) -> str:
+def _is_low_signal_path(path: str) -> bool:
+    """Return ``True`` for machine-generated paths not worth an LLM call.
+
+    Examples
+    --------
+    >>> _is_low_signal_path('poetry.lock')
+    True
+    >>> _is_low_signal_path('web/node_modules/left-pad/index.js')
+    True
+    >>> _is_low_signal_path('src/app.py')
+    False
+
+    """
+    segments = path.split("/")
+    if segments[-1] in _LOW_SIGNAL_FILENAMES:
+        return True
+    if path.endswith(_LOW_SIGNAL_SUFFIXES):
+        return True
+    return any(segment in _LOW_SIGNAL_DIRS for segment in segments)
+
+
+def _file_change_stat(path: str, section: str) -> str:
+    """Describe a file's diff section from its headers and line counts.
+
+    These facts are derived rather than inferred, so they anchor the model
+    against hallucinated file names and change types.
+
+    Examples
+    --------
+    >>> _file_change_stat('a.py', 'diff --git a/a.py b/a.py\\n+one\\n-two')
+    '- a.py (modified, +1/-1)'
+
+    """
+    if re.search(r"^new file mode ", section, re.MULTILINE):
+        status = "added"
+    elif re.search(r"^deleted file mode ", section, re.MULTILINE):
+        status = "deleted"
+    elif re.search(r"^rename to ", section, re.MULTILINE):
+        status = "renamed"
+    elif re.search(r"^Binary files ", section, re.MULTILINE):
+        status = "binary"
+    else:
+        status = "modified"
+
+    added = removed = 0
+    for line in section.splitlines():
+        if line.startswith("+") and not line.startswith("+++"):
+            added += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            removed += 1
+
+    stat = f"- {path or 'unknown path'} ({status}, +{added}/-{removed})"
+    if path and _is_low_signal_path(path):
+        return f"{stat} [generated; not analyzed]"
+    return stat
+
+
+def _summarize_text(
+    model: str, system_prompt: str, content: str, max_tokens: int = 512
+) -> str:
     """Ask the model to summarize ``content``; return "" on failure."""
     # Summarization is a best-effort compression step and must never raise.
     # pylint: disable=broad-exception-caught
@@ -344,7 +410,7 @@ def _summarize_text(model: str, system_prompt: str, content: str) -> str:
                 {"role": "user", "content": content},
             ],
             temperature=0.1,
-            max_tokens=512,
+            max_tokens=max_tokens,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("Summarization request failed: %s", exc)
@@ -356,49 +422,131 @@ def _summarize_text(model: str, system_prompt: str, content: str) -> str:
     return "\n".join(filter(None, (s.strip() for s in contents))).strip()
 
 
-def _summarize_diff_in_chunks(model: str, diff_message: str) -> str:
-    """Compress an oversized diff via a map-reduce summarization chain.
+def _build_map_work_items(
+    model: str, sections: list[tuple[str, str]]
+) -> list[tuple[str, str]]:
+    """Pair each file with the text to summarize, splitting oversized files."""
+    work: list[tuple[str, str]] = []
+    for path, section in sections:
+        label = path or "unknown path"
+        if _count_tokens(model, section) <= SUMMARIZATION_CHUNK_TOKENS:
+            work.append((label, section))
+            continue
 
-    The diff is split into token-bounded chunks which are summarized
-    independently (map), then the summaries are combined and, if still too
-    large, re-summarized (reduce) across a bounded number of rounds. Returns
-    the best available compression; the original text if no round manages
-    to produce any summary output.
-    """
-    text = diff_message
-
-    for round_num in range(MAX_SUMMARIZATION_ROUNDS):
-        chunks = _split_diff_into_chunks(model, text, SUMMARIZATION_CHUNK_TOKENS)
-        if len(chunks) <= 1:
-            break
-
-        summaries = [
-            summary
-            for chunk in chunks
-            if (summary := _summarize_text(model, _MAP_SUMMARY_SYSTEM_PROMPT, chunk))
-        ]
-        if not summaries:
-            logger.warning("Summarization chain produced no output; giving up.")
-            break
-
-        combined = "\n".join(summaries)
-        logger.debug(
-            "Summarization round %d: %d chunk(s) -> %d chars",
-            round_num + 1,
-            len(chunks),
-            len(combined),
+        parts = _split_text_by_token_budget(model, section, SUMMARIZATION_CHUNK_TOKENS)
+        work.extend(
+            (f"{label} (part {index}/{len(parts)})", part)
+            for index, part in enumerate(parts, start=1)
         )
+    return work
 
-        if _count_tokens(model, combined) <= SUMMARIZATION_CHUNK_TOKENS:
-            text = (
-                _summarize_text(model, _REDUCE_SUMMARY_SYSTEM_PROMPT, combined)
-                or combined
+
+def _map_file_summaries(model: str, sections: list[tuple[str, str]]) -> list[str]:
+    """Summarize each file's diff independently, in parallel and time-bounded.
+
+    One request per file keeps a small change from being crowded out by a
+    large neighbour, which is the main source of lost detail when several
+    files share a single summarization call.
+    """
+    work = _build_map_work_items(model, sections)
+    if not work:
+        return []
+
+    ordered: list[str | None] = [None] * len(work)
+    executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=MAX_SUMMARIZATION_WORKERS
+    )
+    try:
+        futures = {
+            executor.submit(
+                _summarize_text,
+                model,
+                _MAP_SUMMARY_SYSTEM_PROMPT,
+                f"File: {label}\n\n{text}",
+                256,
+            ): index
+            for index, (label, text) in enumerate(work)
+        }
+        try:
+            for future in concurrent.futures.as_completed(
+                futures, timeout=SUMMARIZATION_TIMEOUT
+            ):
+                ordered[futures[future]] = future.result()
+        except concurrent.futures.TimeoutError:
+            logger.warning(
+                "Summarization map step exceeded %d seconds; using partial results.",
+                SUMMARIZATION_TIMEOUT,
             )
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    return [
+        f"- {work[index][0]}: {summary.strip()}"
+        for index, summary in enumerate(ordered)
+        if summary and summary.strip()
+    ]
+
+
+def _reduce_summaries(model: str, summaries: list[str]) -> str:
+    """Collapse per-file notes until they fit the summarization budget."""
+    text = "\n".join(summaries)
+
+    for _ in range(MAX_SUMMARIZATION_ROUNDS):
+        if _count_tokens(model, text) <= SUMMARIZATION_CHUNK_TOKENS:
             break
 
-        text = combined
+        groups = _split_text_by_token_budget(model, text, SUMMARIZATION_CHUNK_TOKENS)
+        reduced = [
+            summary
+            for group in groups
+            if (summary := _summarize_text(model, _REDUCE_SUMMARY_SYSTEM_PROMPT, group))
+        ]
+        if not reduced:
+            logger.warning("Reduce step produced no output; keeping current notes.")
+            break
+
+        text = "\n".join(reduced)
 
     return text
+
+
+def _summarize_diff(model: str, diff_message: str) -> str:
+    """Compress an oversized diff into a file-anchored change report.
+
+    Every file contributes a deterministic stat line derived from the diff
+    headers, and every non-generated file is summarized on its own (map)
+    before the notes are collapsed to fit the budget (reduce). Returns the
+    original diff when no summary could be produced.
+    """
+    sections = [
+        (_file_path_from_section(section), section)
+        for section in _split_diff_by_file(diff_message)
+        if section.strip()
+    ]
+    if not sections:
+        return diff_message
+
+    skeleton = "\n".join(_file_change_stat(path, section) for path, section in sections)
+    analyzable = [
+        (path, section)
+        for path, section in sections
+        if not (path and _is_low_signal_path(path))
+    ]
+
+    summaries = _map_file_summaries(model, analyzable)
+    if not summaries:
+        logger.warning("Summarization chain produced no output; giving up.")
+        return diff_message
+
+    notes = _reduce_summaries(model, summaries)
+    logger.debug(
+        "Summarized %d file(s) (%d analyzed): %d -> %d chars",
+        len(sections),
+        len(analyzable),
+        len(diff_message),
+        len(notes),
+    )
+    return f"Files changed:\n{skeleton}\n\nWhat changed:\n{notes}"
 
 
 def _has_oversized_prompt_error(error: Exception) -> bool:
@@ -432,7 +580,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
         )
         loaded[-1] = {
             "role": "user",
-            "content": _summarize_diff_in_chunks(model, diff_message),
+            "content": _summarize_diff(model, diff_message),
         }
         messages = _compress_messages(model, loaded)
         prompt_tokens = _estimate_prompt_tokens(model, messages)
