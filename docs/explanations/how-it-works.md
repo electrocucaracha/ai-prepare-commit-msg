@@ -37,13 +37,18 @@ which runs the AI command with your configured model.
 
 The tool then:
 
-1. **Detects staged changes** — Uses GitPython to fetch the cached diff (all staged changes awaiting commit).
-   If no changes are staged, the tool exits silently without generating anything.
+1. **Detects staged changes** — The CLI creates a `GitRepository` for the current working directory.
+   GitPython reads the cached diff,
+   which contains all changes staged for the next commit.
+   If no changes are staged,
+   the tool exits silently without generating anything.
 
-2. **Guards against oversized diffs** — Estimates token count using LiteLLM's token counter.
-   If the prompt exceeds 120,000 tokens,
-   the tool returns a warning message instead of calling the model,
-   preventing context-window failures.
+2. **Guards against oversized prompts** — Estimates the complete prompt with LiteLLM's token counter.
+   The safe limit is 120,000 tokens.
+   If the estimate is too large,
+   the tool first replaces the raw diff with a file-anchored summary.
+   Only if that summary is still too large does it skip the model request
+   and return a warning.
 
 3. **Constructs the prompt** — Loads a YAML prompt file (default: `prompts/default.yml`)
    containing a system message and user message template.
@@ -51,7 +56,8 @@ The tool then:
 
 4. **Calls the LLM** — Sends all prompt messages to your configured model via LiteLLM
    with a 10-second timeout.
-   The request includes a low temperature (0.1) to favor consistency over creativity.
+   The request uses a low temperature of 0.1
+   to favor consistency over creativity.
 
 5. **Handles retries** — If the model returns an empty response,
    the tool retries up to 5 times (configurable) with a 3-second delay between attempts (configurable).
@@ -64,8 +70,108 @@ The tool then:
    You can accept it (press Enter or Y), reject it (press N), or edit it in the editor.
    With `--auto-approve`, the message is written without confirmation.
 
-8. **Writes to Git** — Persists the commit message to `.git/COMMIT_EDITMSG`,
+8. **Writes to Git** — Persists the commit message to Git's `COMMIT_EDITMSG` path,
    which Git displays in your editor when the hook completes.
+
+## Internal Components
+
+The tool is deliberately small.
+The CLI coordinates the operation,
+while two helpers own the external boundaries:
+
+- `GitRepository` reads staged content and writes the final message.
+- `llm.get_commit_msg()` prepares prompts,
+  protects the model request,
+  and normalizes the response.
+
+The CLI does not pass individual filenames to the model.
+It passes the complete staged diff as the final user message.
+The positional `files` argument exists for compatibility with `pre-commit`;
+the staged diff remains the source of truth.
+
+## Prompt Construction
+
+The default YAML file supplies two messages:
+
+1. A system message defines the output contract,
+   including Conventional Commits,
+   imperative headers,
+   semantic line breaks,
+   and the rule to return only the commit message.
+2. A user message introduces the diff.
+
+The implementation appends the actual staged diff to that loaded list.
+This keeps the writing policy separate from the runtime data.
+You can replace the YAML file with `--prompt-file`
+without changing the Git or model integration code.
+
+## How Large Diffs Are Reduced
+
+Prompt compression and diff summarization solve different problems.
+
+**Headroom compression** is an optional first pass over the prompt.
+When the `headroom-ai` package is available,
+it compresses the messages while protecting the diff's meaningful additions
+and removals.
+The process records token counts,
+and the CLI prints the accumulated savings after a successful generation.
+If Headroom is unavailable or fails,
+the original messages continue through the pipeline.
+
+If the prompt still exceeds 120,000 tokens,
+the summarization chain takes over:
+
+1. The diff is split into sections using each `diff --git` header.
+2. The tool derives each file's path,
+   change type,
+   and added or removed line counts directly from the diff.
+3. Lockfiles,
+   vendored directories,
+   generated files,
+   and other low-signal paths contribute deterministic statistics
+   but do not consume a summarization request.
+4. Each remaining file is summarized independently.
+   Very large files are split into token-sized parts first,
+   and independent summaries run in parallel with a time limit.
+5. A reduce step combines the per-file notes
+   until they fit the summarization budget.
+
+The resulting input tells the model both what changed
+and where it changed,
+without asking it to reconstruct an enormous raw diff.
+If the chain cannot produce useful notes,
+the original diff is retained;
+the final token check then decides whether generation can proceed.
+
+![Prompt processing from staged diff to commit message draft](../assets/diagrams/prompt-pipeline.png)
+
+The prompt pipeline separates prompt policy from staged content.
+The YAML file supplies the policy,
+Headroom optionally reduces token usage,
+and the budget check decides whether the raw or summarized input reaches LiteLLM.
+The model response then becomes the draft shown for confirmation.
+
+## Response And Failure Boundaries
+
+LiteLLM can return choices as objects,
+dictionaries,
+or plain strings depending on the provider.
+The response extractor converts those shapes into text,
+discards empty choices,
+and joins the remaining text with newlines.
+
+The LLM boundary is time-limited to 10 seconds.
+Provider errors and timeouts become an empty result,
+which lets the CLI retry according to `--retry` and `--retry-sleep`.
+An error that explicitly reports a context-size violation becomes the oversized-diff warning.
+After all retries,
+an empty result stops the commit rather than writing a blank message.
+
+The final confirmation is also a boundary:
+interactive runs read approval from `/dev/tty`,
+so Git's own input stream does not interfere with the prompt.
+Without a usable terminal,
+the tool refuses approval unless you explicitly use `--auto-approve`.
 
 ## Why LiteLLM
 
@@ -106,8 +212,9 @@ The tool includes multiple safety mechanisms:
   If the model takes longer, the tool falls back to an empty message,
   which can then be retried.
 
-- **Oversized prompt detection** — Prompts exceeding 120,000 tokens are rejected before calling the model,
-  with a clear message asking you to write the commit manually.
+- **Oversized prompt detection** — Prompts exceeding 120,000 tokens are summarized before the model call.
+  If the summarized prompt still exceeds the limit,
+  the tool returns a clear message asking you to write the commit manually.
   This prevents context-window failures and wasted API calls.
 
 - **Retry logic** — Empty responses trigger automatic retries (up to 5 attempts by default),

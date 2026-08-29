@@ -6,30 +6,29 @@ nav_order: 1
 
 # Configuration reference
 
-This page describes environment variables
+This page describes the environment variables
 and CLI options for `ai-prepare-commit-msg`.
 
-The hook reads only environment variables.
-Set variables in the environment where the hook runs:
-your shell,
-`pre-commit`,
-or CI.
+The `--model` option is required.
+You can provide it directly
+or through `LITELLM_PROXY_MODEL`.
+CLI values take precedence over values supplied by an environment variable.
 
 ## Environment Variables
 
 ### Core variables
 
-| Variable                         | Description                                                                                                                                                       |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LITELLM_PROXY_MODEL`            | LiteLLM model ID for commit generation.                                                                                                                           |
-| `LITELLM_PROXY_API_BASE`         | LiteLLM proxy base URL.                                                                                                                                           |
-| `LITELLM_PROXY_API_KEY`          | LiteLLM proxy API key, if required.                                                                                                                               |
-| `AI_PREPARE_COMMIT_AUTO_APPROVE` | Skip the `[Y/n]` confirmation and write the generated message directly. Required for commits made without a controlling terminal, such as CI or scripted commits. |
+| Variable                         | Description                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `LITELLM_PROXY_MODEL`            | LiteLLM model ID for commit generation. Used when `--model` is not provided.                               |
+| `LITELLM_PROXY_API_BASE`         | LiteLLM proxy base URL.                                                                                    |
+| `LITELLM_PROXY_API_KEY`          | LiteLLM proxy API key, if required.                                                                        |
+| `AI_PREPARE_COMMIT_AUTO_APPROVE` | Enable automatic approval, which skips the `[Y/n]` confirmation and writes the generated message directly. |
 
 ### Provider-specific keys
 
-When you use a provider through the proxy,
-set the matching API key:
+LiteLLM reads provider credentials from these variables
+when the selected model requires them.
 
 | Variable             | Provider    |
 | -------------------- | ----------- |
@@ -55,14 +54,23 @@ set the matching API key:
 
 ## CLI Options
 
-| Option           | Description                                                                                                |
-| ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| `--model`        | Model ID. Overrides `LITELLM_PROXY_MODEL`.                                                                 |
-| `--prompt-file`  | YAML prompt file path. Default is `prompts/default.yml`.                                                   |
-| `--log-level`    | Logging level. Default is `WARNING`.                                                                       |
-| `--retry`        | Maximum attempts when the generated message is empty. Default is `5`.                                      |
-| `--retry-sleep`  | Seconds to wait between retries. Default is `3.0`.                                                         |
-| `--auto-approve` | Skip confirmation and write the generated message immediately. Overrides `AI_PREPARE_COMMIT_AUTO_APPROVE`. |
+| Option           | Accepted values / default                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `--model`        | LiteLLM model ID. Required unless `LITELLM_PROXY_MODEL` is set.                                       |
+| `--prompt-file`  | YAML prompt file path. Default: `prompts/default.yml`, resolved relative to the installed package.    |
+| `--log-level`    | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default: `WARNING`.                               |
+| `--retry`        | Integer of at least `1`. Maximum attempts when the generated message is empty. Default: `5`.          |
+| `--retry-sleep`  | Non-negative number of seconds between retries. Default: `3.0`.                                       |
+| `--auto-approve` | Boolean flag that skips confirmation. The environment equivalent is `AI_PREPARE_COMMIT_AUTO_APPROVE`. |
+
+The command also accepts positional file arguments.
+They are used to detect pre-commit mode
+and do not change message generation.
+
+Prompt files use YAML with a top-level `messages` sequence.
+Each message contains a `role`
+and `content` field,
+following the message format accepted by LiteLLM.
 
 The package exposes a `prepare-commit` console script:
 
@@ -93,13 +101,8 @@ export LITELLM_PROXY_MODEL=openai/gpt-4
 export OPENAI_API_KEY="your-openai-api-key"
 ```
 
-### Custom OpenAI base URL example
-
-```bash
-export OPENAI_BASE_URL="https://your_host/v1"
-```
-
 ## Related
 
 - [How to install](../how-to-guides/how-to-install.md)
+- [How it works](../explanations/how-it-works.md)
 - [Reference index](index.md)
