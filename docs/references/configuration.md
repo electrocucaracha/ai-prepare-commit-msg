@@ -52,6 +52,26 @@ when the selected model requires them.
 | ----------------- | ------------------------------------------------------ |
 | `OPENAI_BASE_URL` | Base URL for a self-hosted OpenAI-compatible endpoint. |
 
+## Custom provider entry points
+
+The package discovers additional LiteLLM providers
+through the entry point group in the following table.
+
+| Entry point group                         | Value                                                 |
+| ----------------------------------------- | ----------------------------------------------------- |
+| `ai_prepare_commit_msg.litellm_providers` | Dotted import path to a LiteLLM `CustomLLM` subclass. |
+
+The entry point name is the provider prefix in a model ID,
+so the entry point `my_provider` matches the model ID `my_provider/my-model`.
+Each discovered handler is instantiated
+and appended to `litellm.custom_provider_map` before the first model call.
+A name already present in that map is not registered again,
+and an entry point that fails to load is logged at `WARNING` level
+without stopping the hook.
+
+See [Add a custom LLM provider](../how-to-guides/custom-providers.md)
+for the procedure.
+
 ## CLI Options
 
 | Option           | Accepted values / default                                                                             |
@@ -104,5 +124,6 @@ export OPENAI_API_KEY="your-openai-api-key"
 ## Related
 
 - [How to install](../how-to-guides/how-to-install.md)
+- [Add a custom LLM provider](../how-to-guides/custom-providers.md)
 - [How it works](../explanations/how-it-works.md)
 - [Reference index](index.md)

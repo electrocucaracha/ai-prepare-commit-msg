@@ -31,17 +31,7 @@ Passing raw, oversized diffs directly to a language model fails in three distinc
    Naively truncating diff text at a fixed token or byte count silently drops files that appear later in the changeset,
    leading to commit messages that ignore critical subsystems.
 
-```mermaid
-flowchart TD
-    A[Staged Git Diff] --> B[Diff Splitter & Low-Signal Filter]
-    B --> C[Deterministic File Skeleton]
-    B --> D[Analyzable File Sections]
-    D --> E[Map Phase: Parallel Per-File Summaries]
-    E --> F[Reduce Phase: Iterative Merging]
-    C --> G[Structured Change Report]
-    F --> G
-    G --> H[Final Commit Message Prompt]
-```
+![Summarization chain from the staged diff to the final commit message prompt](../assets/diagrams/summarization-chain.png)
 
 ## Deterministic anchoring and noise filtering
 

@@ -48,33 +48,7 @@ Headroom's `HeadroomCallback` compresses inside `async_pre_call_hook`,
 which LiteLLM invokes only in proxy mode,
 so registering it has no effect on the synchronous `litellm.completion()` call this project makes.
 
-```mermaid
-sequenceDiagram
-    participant Git as Git prepare-commit-msg hook
-    participant App as ai-prepare-commit-msg
-    participant Headroom as headroom.compress
-    participant Router as ContentRouter
-    participant Compressor as Specialized compressor
-    participant CCR as CCR cache
-    participant LiteLLM as LiteLLM
-    participant Model as Configured LLM provider
-
-    Git->>App: Staged diff and commit-message file
-    App->>App: Load prompt and append diff
-    App->>Headroom: compress(messages)
-    Headroom->>Router: Inspect messages
-    Router->>Compressor: Route diff, JSON, code, or prose
-    Compressor->>CCR: Store original content
-    Compressor-->>Headroom: Return compressed content
-    Headroom-->>App: Compressed messages and token counts
-    App->>App: Record compression metrics
-    App->>App: Estimate prompt tokens
-    App->>LiteLLM: completion(compressed messages)
-    LiteLLM->>Model: Forward completion request
-    Model-->>LiteLLM: Completion response
-    LiteLLM-->>App: Choices
-    App-->>Git: Generated commit message and metrics summary
-```
+![Headroom compression request flow from the Git hook to the generated commit message](../assets/diagrams/headroom-compression.png)
 
 ## Token savings metrics
 
@@ -170,32 +144,7 @@ or validate that compressed content preserves meaning.
 
 The request path is:
 
-```mermaid
-sequenceDiagram
-    participant App as ai-prepare-commit-msg
-    participant Headroom as Headroom compress()
-    participant Router as ContentRouter
-    participant Diff as Diff compressor
-    participant Structured as JSON/code/text compressor
-    participant CCR as CCR cache
-    participant LiteLLM as LiteLLM
-    participant Model as Configured LLM provider
-
-    App->>App: Load prompt and append staged diff
-    App->>Headroom: compress(messages, model, options)
-    Headroom->>Router: Inspect eligible messages
-    Router->>Diff: Route unified diff
-    Diff-->>Router: Compressed diff
-    Router->>Structured: Route other eligible content
-    Structured-->>Router: Compressed content
-    Router->>CCR: Retain originals when supported
-    Router-->>Headroom: Compressed messages and token counts
-    Headroom-->>App: Return compression result
-    App->>LiteLLM: completion(compressed messages)
-    LiteLLM->>Model: Forward completion request
-    Model-->>LiteLLM: Completion response
-    LiteLLM-->>App: Generated choices
-```
+![Headroom pipeline routing prompt content to the diff or structured compressor before the LiteLLM request](../assets/diagrams/headroom-pipeline.png)
 
 If compression is unavailable,
 raises an exception,

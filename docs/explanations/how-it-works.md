@@ -105,6 +105,24 @@ This keeps the writing policy separate from the runtime data.
 You can replace the YAML file with `--prompt-file`
 without changing the Git or model integration code.
 
+## Why Providers Are Pluggable
+
+LiteLLM covers the major hosted providers,
+but it cannot know about a corporate gateway
+or a self-hosted inference server behind a private network.
+Rather than accepting backend-specific code and credentials into this project,
+the tool reads the `ai_prepare_commit_msg.litellm_providers` entry point group
+before the first model call
+and registers whatever handlers the environment advertises.
+
+That inversion keeps the integration surface honest.
+A provider lives in its owner's package,
+ships on its owner's release cycle,
+and a plugin that fails to import degrades to a logged warning
+rather than a broken commit.
+See [Add a custom LLM provider](../how-to-guides/custom-providers.md)
+for the procedure.
+
 ## How Large Diffs Are Reduced
 
 Prompt compression and diff summarization solve different problems.
