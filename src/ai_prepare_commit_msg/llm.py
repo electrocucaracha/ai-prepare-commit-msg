@@ -467,8 +467,8 @@ def _summarize_text(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": content},
             ],
-            temperature=0.1,
             max_tokens=max_tokens,
+            drop_params=True,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("Summarization request failed: %s", exc)
@@ -658,9 +658,8 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
         response = litellm.completion(
             model=model,
             messages=messages,
-            temperature=0.1,
             max_tokens=1024,
-            num_ctx=16384,
+            drop_params=True,
         )
         logger.debug("Sent prompt to model '%s'; awaiting response", model)
         return response
