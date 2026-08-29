@@ -52,6 +52,37 @@ when the selected model requires them.
 | ----------------- | ------------------------------------------------------ |
 | `OPENAI_BASE_URL` | Base URL for a self-hosted OpenAI-compatible endpoint. |
 
+## GitHub Copilot models
+
+GitHub Copilot models can be selected through LiteLLM
+by using the `github_copilot/` provider prefix:
+
+```text
+github_copilot/<model-id>
+```
+
+For example:
+
+```bash
+export LITELLM_PROXY_MODEL=github_copilot/gpt-5-mini
+```
+
+### Model selection
+
+The model is intentionally not fixed by `ai-prepare-commit-msg`.
+Users can select any GitHub Copilot model supported by their
+LiteLLM version and available to their GitHub Copilot account.
+
+Examples include:
+
+| LiteLLM model ID                   | Notes                                                            |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `github_copilot/gpt-5-mini`        | Small GPT-5-family model suitable for commit-message generation. |
+| `github_copilot/gpt-5.2`           | GPT-5-family model with higher capability than smaller models.   |
+| `github_copilot/claude-haiku-4.5`  | Small Claude model suitable for short code-oriented tasks.       |
+| `github_copilot/claude-sonnet-4.5` | Larger Claude model for more capable code understanding.         |
+| `github_copilot/gpt-4o`            | GPT-4o model available through supported Copilot integrations.   |
+
 ## Custom provider entry points
 
 The package discovers additional LiteLLM providers

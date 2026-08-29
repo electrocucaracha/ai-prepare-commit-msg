@@ -215,6 +215,7 @@ https
 huggingface
 img
 importlib
+integrations
 isort
 Isort
 iteratively
