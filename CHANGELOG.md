@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.0] - 2026-08-29
+
+### Removed
+
+- BREAKING: Migrated local workflow logic for linter, release, and update automation to upstream reusable workflows from electrocucaracha/gh-workflows, requiring customizations to be made upstream due to a breaking change. [05a7864a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/05a7864a12319a5b24bcaa41a1c7599f9162d87f)
+
+## [8.1.0] - 2026-08-29
+
+### Added
+
+- enabled support for custom LiteLLM providers via entry points, allowing integration with corporate gateways or self-hosted servers without modifying the core codebase. [c4f4da09](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c4f4da0969eff567423410baf2ae73e9f9560a10)
+
+## [8.0.2] - 2026-08-29
+
+### Changed
+
+- Enabled extensibility and transparency in the model routing architecture by introducing a plugin system for custom LLM providers, allowing users to register and integrate private or unsupported backends without modifying the project. [bea11b91](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/bea11b91ad87b963169fb3b629178bca3458aad5)
+
+## [8.0.1] - 2026-08-28
+
+### Changed
+
+- Expanded the wordlist to include new project-specific terminology, abbreviations, and common words, enabling better spell checking and linting accuracy for technical documentation and code comments, particularly for current workflows. [e4ca8fb5](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e4ca8fb5a9fabad13bff4125714cf86ce71c26e7)
+
+## [8.0.0] - 2026-08-28
+
+### Removed
+
+- Simplified the fake_summarize function in a test by removing an unused content parameter, clarifying the test's intent without affecting test behavior or coverage. [8e17676c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8e17676ca92bbead0181c9827e1dbdc7d218e75c)
+
+## [7.10.0] - 2026-08-28
+
+### Added
+
+- Expanded the changelog with detailed entries for all releases from 7.2.1 to 7.9.2, documenting added features, optimizations, and dependency updates, which improves traceability and helps users understand the project's evolution. [6446470e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/6446470efbfffc03c6ca26cb371efdfa312f36d7)
+
 ## [7.9.2] - 2026-08-28
 
 ### Changed
