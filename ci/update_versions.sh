@@ -49,9 +49,16 @@ resolve_reusable_workflow_commit_hash() {
     local workflow=$1
     local ref=$2
     local repo=${workflow%%/.github/workflows/*}
+    local commit_hash
 
     if [[ $ref =~ ^[0-9a-fA-F]{40}$ ]]; then
-        printf "%s\n" "$ref"
+        printf "%s # %s"
+        return
+    fi
+
+    commit_hash=$(resolve_action_commit_hash "$repo" '^[vV]?[0-9]+(\.[0-9]+)*$')
+    if [[ -n $commit_hash ]]; then
+        printf "%s\n" "$commit_hash"
         return
     fi
 
