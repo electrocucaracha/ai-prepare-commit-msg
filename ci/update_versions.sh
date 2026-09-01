@@ -74,6 +74,5 @@ for action in $gh_actions; do
     else
         commit_hash=$(resolve_action_commit_hash "$action" '^[vV]?[0-9]+(\.[0-9]+)*$')
     fi
-    # shellcheck disable=SC2267
-    grep -ElRZ "uses: $action@" .github/ | xargs -0 -l sed -i -e "s|uses: $action@.*|uses: $action@$commit_hash|g"
+    grep -ElRZ "uses: $action@" .github/ | xargs -0 -L 1 sed -i -e "s|uses: $action@.*|uses: $action@$commit_hash|g"
 done

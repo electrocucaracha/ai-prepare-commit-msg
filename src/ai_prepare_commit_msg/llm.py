@@ -34,10 +34,9 @@ from pathlib import Path
 from typing import Any
 
 import litellm
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 # Third-party compression errors must fall back to the original prompt.
-# pylint: disable=broad-exception-caught
 try:
     from headroom.compress import compress as headroom_compress
 except ImportError:  # pragma: no cover - exercised via integration environment
@@ -230,6 +229,8 @@ def _compress_messages(
         return list(messages)
 
     try:
+        # Third-party compression errors must fall back to the original prompt.
+        # pylint: disable=broad-exception-caught
         result = headroom_compress(
             messages=messages,
             model=model,

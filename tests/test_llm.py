@@ -491,7 +491,7 @@ def test_load_custom_providers_warns_on_load_failure(monkeypatch, caplog):
     with caplog.at_level("WARNING", logger=llm.__name__):
         llm.load_custom_providers()
 
-    assert llm.litellm.custom_provider_map == []
+    assert not llm.litellm.custom_provider_map
     assert any("bad_provider" in record.getMessage() for record in caplog.records)
 
 
@@ -501,4 +501,4 @@ def test_load_custom_providers_without_entry_points(monkeypatch):
 
     llm.load_custom_providers()
 
-    assert llm.litellm.custom_provider_map == []
+    assert not llm.litellm.custom_provider_map
