@@ -1,3 +1,5 @@
+<!-- Repeated section headings (Added/Changed/Fixed) per release are expected
+     in the Keep a Changelog format, so MD024 is disabled for this file. -->
 <!-- Markdownlint-disable MD024 -->
 
 # Changelog
