@@ -29,6 +29,11 @@ import pytest
 from ai_prepare_commit_msg import llm
 
 
+def _raise_timeout(self, timeout=None):  # pylint: disable=unused-argument
+    """Stand-in for ``Future.result`` that always raises ``TimeoutError``."""
+    raise llm.concurrent.futures.TimeoutError("future did not complete in time")
+
+
 def test__extract_choice_content_various_shapes():
     """Various model choice shapes are normalized to text."""
 
@@ -58,6 +63,14 @@ def test__extract_choice_content_various_shapes():
 
     # message attribute present but None -> empty string
     assert llm._extract_choice_content(ChoiceObj(None)) == ""
+
+
+def test_compression_stats_savings_ratio_is_zero_without_baseline():
+    """``savings_ratio`` avoids division by zero when nothing was recorded."""
+    stats = llm.CompressionStats()
+
+    assert stats.tokens_before == 0
+    assert stats.savings_ratio == 0.0
 
 
 def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
@@ -172,6 +185,41 @@ def test_get_commit_msg_uses_summarization_chain_for_oversized_diff(monkeypatch)
     assert seen_messages[-1][-1] == {"role": "user", "content": "summarized diff"}
 
 
+def test_get_commit_msg_returns_empty_on_timeout(monkeypatch):
+    """A slow provider call falls back to an empty message on timeout."""
+    monkeypatch.setattr(
+        llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
+    )
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 42)
+
+    def fast_completion(**_kwargs):
+        return SimpleNamespace(choices=[])
+
+    monkeypatch.setattr(llm.litellm, "completion", fast_completion)
+    monkeypatch.setattr(llm.concurrent.futures.Future, "result", _raise_timeout)
+
+    result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
+
+    assert result == ""
+
+
+def test_get_commit_msg_returns_empty_on_generic_provider_error(monkeypatch):
+    """Non-oversized provider errors degrade to an empty commit message."""
+    monkeypatch.setattr(
+        llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
+    )
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 42)
+
+    def fake_completion(**_kwargs):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
+
+    assert result == ""
+
+
 def test_get_commit_msg_returns_warning_for_oversized_provider_error(monkeypatch):
     """Provider token-limit failures degrade to a warning message."""
     monkeypatch.setattr(
@@ -238,6 +286,24 @@ def test_compress_messages_falls_back_when_headroom_raises(monkeypatch):
     assert llm.get_compression_stats().requests == 0
 
 
+def test_compress_messages_ignores_zero_token_baseline(monkeypatch):
+    """Headroom results with a non-positive token baseline are discarded."""
+    compressed_result = SimpleNamespace(
+        messages=[{"role": "system", "content": "compressed"}],
+        tokens_before=0,
+        tokens_after=0,
+        transforms_applied=[],
+    )
+
+    llm.get_compression_stats().reset()
+    monkeypatch.setattr(llm, "headroom_compress", lambda **_kwargs: compressed_result)
+
+    messages = [{"role": "user", "content": "diff"}]
+
+    assert llm._compress_messages("mymodel", messages) == messages
+    assert llm.get_compression_stats().requests == 0
+
+
 def test_split_diff_by_file():
     """Diffs are split into per-file sections, preamble included."""
     diff = "preamble\ndiff --git a b\n+1\ndiff --git c d\n+2"
@@ -270,6 +336,59 @@ def test_file_path_and_change_stat_are_derived_from_headers():
     assert llm._file_change_stat("moved.py", renamed).startswith("- moved.py (renamed,")
 
 
+def test_file_change_stat_detects_deleted_and_binary_files():
+    """Deleted and binary diff sections are reported with the right status."""
+    deleted = "diff --git a/old.py b/old.py\ndeleted file mode 100644\n-one\n"
+    binary = (
+        "diff --git a/img.png b/img.png\nBinary files a/img.png and b/img.png differ\n"
+    )
+
+    assert llm._file_change_stat("old.py", deleted) == "- old.py (deleted, +0/-1)"
+    assert llm._file_change_stat("img.png", binary) == "- img.png (binary, +0/-0)"
+
+
+def test_is_low_signal_path_matches_generated_suffixes():
+    """Minified and generated-code suffixes are treated as low signal."""
+    assert llm._is_low_signal_path("dist/app.min.js")
+    assert llm._is_low_signal_path("pkg/service.pb.go")
+    assert not llm._is_low_signal_path("src/app.py")
+
+
+def test_estimate_prompt_tokens_returns_int_on_success(monkeypatch):
+    """A successful token count is normalized to a plain ``int``."""
+    monkeypatch.setattr(llm.litellm, "token_counter", lambda **_kwargs: 123)
+
+    result = llm._estimate_prompt_tokens("mymodel", [{"role": "user", "content": "x"}])
+
+    assert result == 123
+    assert isinstance(result, int)
+
+
+def test_estimate_prompt_tokens_returns_none_on_failure(monkeypatch):
+    """Token estimation failures degrade to ``None`` instead of raising."""
+
+    def boom(**_kwargs):
+        raise RuntimeError("model not recognized")
+
+    monkeypatch.setattr(llm.litellm, "token_counter", boom)
+
+    assert (
+        llm._estimate_prompt_tokens("mymodel", [{"role": "user", "content": "x"}])
+        is None
+    )
+
+
+def test_count_tokens_falls_back_to_heuristic_on_failure(monkeypatch):
+    """Token counting failures fall back to a character-based heuristic."""
+
+    def boom(**_kwargs):
+        raise RuntimeError("model not recognized")
+
+    monkeypatch.setattr(llm.litellm, "token_counter", boom)
+
+    assert llm._count_tokens("mymodel", "12345678") == 2
+
+
 def test_low_signal_files_are_reported_without_an_llm_call(monkeypatch):
     """Generated files appear in the skeleton but are never summarized."""
     diff = (
@@ -293,6 +412,76 @@ def test_low_signal_files_are_reported_without_an_llm_call(monkeypatch):
     assert "poetry.lock" in result
     assert "[generated; not analyzed]" in result
     assert "adds a real change" in result
+
+
+def test_summarize_diff_returns_original_when_all_sections_are_blank():
+    """A diff whose sections are all blank/whitespace is returned unchanged."""
+    diff = "\n\n   \n"
+
+    assert llm._summarize_diff("mymodel", diff) == diff
+
+
+def test_build_map_work_items_splits_oversized_sections(monkeypatch):
+    """A section over the chunk budget is split into labelled parts."""
+    monkeypatch.setattr(llm, "_count_tokens", lambda _model, text: len(text))
+    monkeypatch.setattr(
+        llm,
+        "_split_text_by_token_budget",
+        lambda _model, text, _budget: [text[:1], text[1:]],
+    )
+
+    huge_section = "x" * (llm.SUMMARIZATION_CHUNK_TOKENS + 1)
+    work = llm._build_map_work_items("mymodel", [("big.py", huge_section)])
+
+    assert [label for label, _ in work] == [
+        "big.py (part 1/2)",
+        "big.py (part 2/2)",
+    ]
+    assert "".join(text for _, text in work) == huge_section
+
+
+def test_map_file_summaries_returns_empty_list_without_work_items(monkeypatch):
+    """No sections to summarize means no summarization calls happen."""
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("summarization should not be called")
+
+    monkeypatch.setattr(llm, "_summarize_text", fail)
+
+    assert llm._map_file_summaries("mymodel", []) == []
+
+
+def test_map_file_summaries_keeps_partial_results_on_timeout(monkeypatch):
+    """A summarization map step that exceeds the timeout keeps partial notes."""
+    monkeypatch.setattr(llm, "_count_tokens", lambda *_args: 1)
+    monkeypatch.setattr(llm, "_summarize_text", lambda *_args, **_kwargs: "note")
+
+    def fake_as_completed(_futures, timeout=None):  # pylint: disable=unused-argument
+        # Raising here (rather than returning an iterable) is enough: the
+        # exception fires before the ``for`` loop in ``_map_file_summaries``
+        # starts iterating.
+        raise llm.concurrent.futures.TimeoutError("map step took too long")
+
+    monkeypatch.setattr(llm.concurrent.futures, "as_completed", fake_as_completed)
+
+    summaries = llm._map_file_summaries("mymodel", [("a.py", "diff a")])
+
+    assert summaries == []
+
+
+def test_reduce_summaries_stops_when_reduce_step_produces_nothing(monkeypatch):
+    """The reduce loop bails out instead of looping forever on empty output."""
+    monkeypatch.setattr(
+        llm, "_count_tokens", lambda *_args: llm.SUMMARIZATION_CHUNK_TOKENS + 1
+    )
+    monkeypatch.setattr(
+        llm, "_split_text_by_token_budget", lambda _model, text, _budget: [text]
+    )
+    monkeypatch.setattr(llm, "_summarize_text", lambda *_args, **_kwargs: "")
+
+    summaries = ["- a.py: one", "- b.py: two"]
+
+    assert llm._reduce_summaries("mymodel", summaries) == "\n".join(summaries)
 
 
 def test_map_file_summaries_labels_each_file_separately(monkeypatch):
@@ -438,6 +627,30 @@ def _patch_entry_points(monkeypatch, entries):
         lambda *, group: (
             list(entries) if group == llm.CUSTOM_PROVIDER_ENTRY_POINT_GROUP else []
         ),
+    )
+
+
+def test_load_custom_providers_initializes_non_list_provider_map(monkeypatch):
+    """A pre-existing non-list ``custom_provider_map`` is replaced, not appended to."""
+    monkeypatch.setattr(llm.litellm, "custom_provider_map", None, raising=False)
+    entry = SimpleNamespace(
+        name="my_provider",
+        value="mypkg.llm:Handler",
+        load=lambda: _FakeHandler,
+    )
+    monkeypatch.setattr(
+        llm,
+        "entry_points",
+        lambda *, group: (
+            [entry] if group == llm.CUSTOM_PROVIDER_ENTRY_POINT_GROUP else []
+        ),
+    )
+
+    llm.load_custom_providers()
+
+    assert isinstance(llm.litellm.custom_provider_map, list)
+    assert any(
+        item["provider"] == "my_provider" for item in llm.litellm.custom_provider_map
     )
 
 
