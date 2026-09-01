@@ -48,7 +48,7 @@ jobs:
       contents: read
       models: read
       issues: write
-    uses: electrocucaracha/gh-workflows/.github/workflows/linter.yml@main
+    uses: electrocucaracha/gh-workflows/.github/workflows/linter.yml@07251a502e58a09224734d81db5da0eeb34a7509 # main
     secrets: inherit
     with:
       validate_overrides: |-

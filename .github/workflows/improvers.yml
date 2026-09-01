@@ -19,5 +19,5 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: electrocucaracha/gh-workflows/.github/workflows/improvers.yml@main
+    uses: electrocucaracha/gh-workflows/.github/workflows/improvers.yml@07251a502e58a09224734d81db5da0eeb34a7509 # main
     secrets: inherit

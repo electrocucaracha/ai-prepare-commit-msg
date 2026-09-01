@@ -10,7 +10,10 @@ name: Release with AI Changelog
 # yamllint disable-line rule:truthy
 on:
   workflow_dispatch:
+permissions: read-all
 jobs:
   release:
-    uses: electrocucaracha/gh-workflows/.github/workflows/release.yml@main
+    permissions:
+      contents: write
+    uses: electrocucaracha/gh-workflows/.github/workflows/release.yml@07251a502e58a09224734d81db5da0eeb34a7509 # main
     secrets: inherit
