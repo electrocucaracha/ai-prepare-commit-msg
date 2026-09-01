@@ -11,6 +11,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.0.0] - 2026-09-01
+
+### Removed
+
+- Simplified configuration by removing explicit 'secrets: inherit' lines from workflow jobs, which are now inherited by default in reusable workflows. [7377f774](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/7377f7745283594d6bd726c151b46052ad7c7c9a)
+
+## [13.0.1] - 2026-09-01
+
+### Changed
+
+- Updated multiple dependencies in uv.lock to their latest versions, including ast-grep-cli, boto3, botocore, filelock, litellm, platformdirs, and regular expression, to ensure alignment with upstream bugfixes and improvements. [086e0ee5](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/086e0ee51728b574d6a67d328be79c1dc9aa9e8e)
+
+## [13.0.0] - 2026-09-01
+
+### Removed
+
+- Simplified CI workflow configuration by removing redundant secrets inheritance from GitHub workflows. [20f62fef](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/20f62fefb087f103463bd7a2a5d6d245449d8eac)
+
+## [12.1.1] - 2026-09-01
+
+### Changed
+
+- Updated GitHub Actions workflows to reference the v5.0.0 release instead of a commit hash on the main branch, and optimized version resolution logic to output release tags instead of commit hashes, improving maintainability and alignment with workflow versioning best practices. [6c16b227](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/6c16b227637d784b2541c12a6d9881f99ba23e35)
+
+## [12.1.0] - 2026-09-01
+
+### Added
+
+- Enabled mypy linter environments to ignore missing imports for certain packages during CI, ensuring more accurate type checking and eliminating false-positive errors. [373bdc8a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/373bdc8aab1762add044a6cc6ce431e4699fcb7c)
+
+## [12.0.2] - 2026-09-01
+
+### Changed
+
+- Hardened supply chain security by pinning reusable workflows to specific commit hashes in GitHub Actions configuration. [e7e10d45](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e7e10d45c574c676bfd59c67e4ab5dbe102fc7ce)
+
+## [12.0.1] - 2026-08-31
+
+### Changed
+
+- Simplified explanations for prompt compression and summarization, including Headroom integration and system execution flow, to prioritize developer usability and project guardrails. [29cf66cb](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/29cf66cb42313c56e9f63164f35035969f00d3df)
+
+## [12.0.0] - 2026-08-31
+
+### Removed
+
+- Simplified the codebase by removing unnecessary suppressions and addressing underlying issues, resulting in improved code quality and adherence to best practices. [e7ea07e9](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e7ea07e95db2ed350a4361907b7ca2e9da88538b)
+
+## [11.0.0] - 2026-08-31
+
+### Removed
+
+- Simplified the project's dependencies by removing the unused aiohttp and python-dotenv packages, which are already transitively included by litellm, resulting in a more streamlined dependency list with no observable impact on API or CLI usage. [58d10ffd](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/58d10ffd6a1299233fba8cea310e3ac3e86cdf7e)
+
+## [10.2.0] - 2026-08-31
+
+### Added
+
+- Enabled comprehensive code coverage of 100% by adding targeted unit tests that cover previously untested code paths in ai_prepare_commit_msg, git.py, and llm.py, including CLI confirmation flow, Git repository interactions, and LLM-related functions. [09a28aec](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/09a28aec7d784a08069e21d113dd44fec516b65d)
+
+## [10.1.1] - 2026-08-31
+
+### Changed
+
+- Enabled comprehensive codebase quality improvements through the introduction of standardized automated refactoring and testing practices facilitated by the Universal Janitor and QA subagent guidelines. [8285c7b9](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8285c7b993bf1992da8e63cc3409ead56617f3a0)
+
+## [10.1.0] - 2026-08-29
+
+### Added
+
+- Enabled selection of GitHub Copilot models through LiteLLM using the `github_copilot/` provider prefix, allowing users to choose from various models supported by their LiteLLM version and GitHub Copilot account. [22dd98da](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/22dd98da95d13ab2bd4cad8cba9a8d3bbf01cf20)
+
+## [10.0.0] - 2026-08-29
+
+### Removed
+
+- Optimized LLM requests to litellm.completion by enabling the client to filter out unsupported parameters, reducing failures caused by parameter rejection, and removing explicit temperature and num_ctx arguments. [d2e44c9e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/d2e44c9e7781fa12b9d073d582a252c28af595dc)
+
+## [9.0.4] - 2026-08-29
+
+### Changed
+
+- Clarified the system prompt to provide more detailed guidance for generating commit messages, emphasizing writing for future maintainers and ensuring Conventional Commit compliance. [3651b469](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/3651b469218f84e77375b7055f167a8de0109e47)
+
+## [9.0.3] - 2026-08-29
+
+### Changed
+
+- Upgraded dependencies to ensure compatibility and improved stability, including bugfixes and minor improvements from upstream, with no breaking changes expected but downstream consumers should test integrations as a precaution. [6535e8d7](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/6535e8d7186b854ccd23ae28327b0db7d18b95f6)
+
+## [9.0.2] - 2026-08-29
+
+### Changed
+
+- Switched the prepare-commit hook to run as a shell command, improving compatibility and reducing dependency on Python in environments where it's not available or desired. [50ef55ee](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/50ef55ee4a7b0c9dad80eec24505d85d71738d6a)
+
+## [9.0.1] - 2026-08-29
+
+### Changed
+
+- Expanded the changelog with detailed release entries for versions 8.0.0 through 9.0.0, and enhanced the wordlist with new abbreviations and technical vocabulary to improve spell checking and linting accuracy, thereby increasing project transparency and developer experience. [13227727](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/13227727c959d222e6432565507344a9b36e0b1a)
+
 ## [9.0.0] - 2026-08-29
 
 ### Removed
