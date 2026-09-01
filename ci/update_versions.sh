@@ -28,18 +28,21 @@ resolve_action_commit_hash() {
 
     git ls-remote --tags "https://github.com/$action" |
         awk -v version_pattern="$version_pattern" '
-    {
-        sha=$1
-        tag=$2
-        deref = (tag ~ /\^\{\}$/) ? 1 : 0
-        sub(/^refs\/tags\//, "", tag)
-        sub(/\^\{\}$/, "", tag)
-        if (tag ~ version_pattern) {
-            sortkey=tag
-            sub(/^[vV]/, "", sortkey)
-            print sortkey "\t" deref "\t" sha "\t" tag
-        }
-    }' |
+        {
+            sha=$1
+            tag=$2
+            deref = (tag ~ /\^\{\}$/) ? 1 : 0
+
+            sub(/^refs\/tags\//, "", tag)
+            sub(/\^\{\}$/, "", tag)
+
+            if (tag ~ version_pattern) {
+                sortkey=tag
+                sub(/^[vV]/, "", sortkey)
+
+                print sortkey "\t" deref "\t" sha "\t" tag
+            }
+        }' |
         sort -V -k1,1 -k2,2n |
         tail -1 |
         awk -F'\t' '{ printf "%s # %s\n", $3, $4 }'
@@ -51,33 +54,43 @@ resolve_reusable_workflow_commit_hash() {
     local repo=${workflow%%/.github/workflows/*}
     local commit_hash
 
+    # A full SHA is already immutable; no lookup required.
     if [[ $ref =~ ^[0-9a-fA-F]{40}$ ]]; then
-        printf "%s # %s"
+        printf "%s # %s\n" "$ref" "$ref"
         return
     fi
 
+    # For version-like refs, resolve the latest matching tag.
     commit_hash=$(resolve_action_commit_hash "$repo" '^[vV]?[0-9]+(\.[0-9]+)*$')
     if [[ -n $commit_hash ]]; then
         printf "%s\n" "$commit_hash"
         return
     fi
 
-    git ls-remote "https://github.com/$repo" "refs/heads/$ref" "refs/tags/$ref" "refs/tags/$ref^{}" |
+    # Otherwise resolve the ref directly as a branch or tag.
+    git ls-remote \
+        "https://github.com/$repo" \
+        "refs/heads/$ref" \
+        "refs/tags/$ref" \
+        "refs/tags/$ref^{}" |
         awk -v ref="$ref" '
-    {
-        sha=$1
-        target=$2
-        deref = (target ~ /\^\{\}$/) ? 1 : 0
-        if (target ~ /^refs\/heads\// || deref || best == "") {
-            best=sha
+        {
+            sha=$1
+            target=$2
+            deref = (target ~ /\^\{\}$/) ? 1 : 0
+
+            if (target ~ /^refs\/heads\// || deref || best == "") {
+                best=sha
+            }
         }
-    }
-    END {
-        if (best == "") {
-            exit 1
-        }
-        printf "%s # %s\n", best, ref
-    }'
+
+        END {
+            if (best == "") {
+                exit 1
+            }
+
+            printf "%s # %s\n", best, ref
+        }'
 }
 
 resolve_reusable_workflow_ref() {
