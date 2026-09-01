@@ -7,8 +7,6 @@ dependencies = [
     "litellm",
     "headroom-ai",
     "GitPython>=3.1.49",
-    "aiohttp",
-    "python-dotenv>=1.0.1",
 ]
 
 [build-system]
