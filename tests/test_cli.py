@@ -15,6 +15,11 @@
 
 """Tests for the CLI confirmation flow."""
 
+# Tests intentionally access internal helpers of the CLI module.
+# pylint: disable=protected-access
+
+import io
+
 from click.testing import CliRunner
 
 import ai_prepare_commit_msg
@@ -219,3 +224,153 @@ def test_cli_uses_user_provided_retry_sleep(monkeypatch):
     assert result.exit_code == 0
     assert holder["repo"].written_message == "message after wait"
     assert sleep_calls == [1.5]
+
+
+def test_cli_skips_generation_when_no_staged_changes(monkeypatch):
+    """CLI exits early without calling the LLM when there is nothing staged."""
+
+    class EmptyDiffRepo(DummyRepo):
+        """Fake repository reporting no staged changes."""
+
+        def get_diff_message(self):
+            """Return an empty diff to simulate no staged changes."""
+            return ""
+
+    holder = {}
+
+    def build_repo(_path):
+        repo = EmptyDiffRepo(_path)
+        holder["repo"] = repo
+        return repo
+
+    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+
+    def fail_if_called(*_args):
+        raise AssertionError("LLM should not be called without staged changes")
+
+    monkeypatch.setattr(ai_prepare_commit_msg, "get_commit_msg", fail_if_called)
+
+    runner = CliRunner()
+    result = runner.invoke(ai_prepare_commit_msg.cli, ["--model", "test-model"])
+
+    assert result.exit_code == 0
+    assert holder["repo"].written_message is None
+
+
+def test_cli_logs_pre_commit_mode(monkeypatch, caplog):
+    """CLI logs that it is running under pre-commit when files are passed."""
+    _configure_cli_dependencies(monkeypatch)
+    monkeypatch.setattr(
+        ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: True
+    )
+    monkeypatch.setenv("PRE_COMMIT", "1")
+
+    runner = CliRunner()
+    with caplog.at_level("INFO", logger=ai_prepare_commit_msg.__name__):
+        result = runner.invoke(
+            ai_prepare_commit_msg.cli,
+            ["--model", "test-model", "--log-level", "INFO", "some_file.py"],
+        )
+
+    assert result.exit_code == 0
+    assert any(
+        "Running in pre-commit mode" in record.getMessage() for record in caplog.records
+    )
+
+
+class _FakeInteractiveStream:
+    """Minimal stream stub with independent read and write buffers.
+
+    ``io.StringIO`` shares a single cursor for reads and writes, so writing
+    prompt text advances past pre-seeded input. This stub keeps input lines
+    and captured output separate, matching how a real TTY behaves.
+    """
+
+    def __init__(self, input_text=""):
+        self._lines = io.StringIO(input_text)
+        self._output = io.StringIO()
+
+    def write(self, text):
+        """Capture written prompt/output text."""
+        self._output.write(text)
+
+    def flush(self):
+        """No-op flush to satisfy the stream interface."""
+
+    def readline(self):
+        """Return the next pre-seeded input line."""
+        return self._lines.readline()
+
+    def getvalue(self):
+        """Return everything written to this stream so far."""
+        return self._output.getvalue()
+
+
+def test_prompt_on_stream_accepts_default_yes_on_enter():
+    """Pressing enter alone accepts the generated message (default 'yes')."""
+    stream = _FakeInteractiveStream("\n")
+
+    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is True
+
+
+def test_prompt_on_stream_accepts_explicit_yes():
+    """An explicit 'y' response accepts the generated message."""
+    stream = _FakeInteractiveStream("y\n")
+
+    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is True
+
+
+def test_prompt_on_stream_rejects_explicit_no():
+    """An explicit 'n' response rejects the generated message."""
+    stream = _FakeInteractiveStream("n\n")
+
+    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is False
+
+
+def test_prompt_on_stream_returns_false_on_eof():
+    """Reaching end-of-stream without a response rejects the message."""
+    stream = _FakeInteractiveStream("")
+
+    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is False
+
+
+def test_prompt_on_stream_reprompts_on_invalid_input_then_accepts():
+    """Invalid answers are re-prompted until a valid answer is given."""
+    stream = _FakeInteractiveStream("maybe\nyes\n")
+
+    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is True
+    output = stream.getvalue()
+    assert "Please answer 'y' or 'n'." in output
+    assert "commit body" in output
+
+
+def test_confirm_generated_message_reads_from_tty(monkeypatch):
+    """The confirmation helper delegates to the interactive TTY stream."""
+    fake_tty = _FakeInteractiveStream("y\n")
+
+    class _FakeTtyContext:
+        """Context manager wrapping a fake TTY stream."""
+
+        def __enter__(self):
+            return fake_tty
+
+        def __exit__(self, *_exc_info):
+            return False
+
+    def fake_open(self, *_args, **_kwargs):  # pylint: disable=unused-argument
+        return _FakeTtyContext()
+
+    monkeypatch.setattr(ai_prepare_commit_msg.Path, "open", fake_open)
+
+    assert ai_prepare_commit_msg._confirm_generated_message("commit body") is True
+
+
+def test_confirm_generated_message_returns_false_without_tty(monkeypatch):
+    """Missing an interactive TTY refuses auto-approval instead of raising."""
+
+    def fake_open(self, *_args, **_kwargs):  # pylint: disable=unused-argument
+        raise OSError("no such device or address")
+
+    monkeypatch.setattr(ai_prepare_commit_msg.Path, "open", fake_open)
+
+    assert ai_prepare_commit_msg._confirm_generated_message("commit body") is False

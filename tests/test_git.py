@@ -106,3 +106,32 @@ def test_get_diff_message_empty_when_no_staged_changes(monkeypatch, tmp_path):
 
     repo = gitmod.GitRepository(tmp_path)
     assert repo.get_diff_message() == ""
+
+
+def test_write_commit_msg_reraises_on_os_error(monkeypatch, tmp_path):
+    """A write failure is logged and re-raised instead of being swallowed."""
+
+    class DummyGit:
+        """Fake git interface returning a preset git dir."""  # pylint: disable=too-few-public-methods
+
+        def rev_parse(self, _arg):
+            """Return the path to a git directory that cannot be written to."""
+            return str(tmp_path / "gitdir3")
+
+    class DummyRepo:
+        """Container exposing a ``git`` attribute for the failure case."""  # pylint: disable=too-few-public-methods
+
+        def __init__(self, _path):
+            """Initialize the container with a `DummyGit` instance."""
+            self.git = DummyGit()
+
+    monkeypatch.setattr(gitmod, "Repo", DummyRepo)
+
+    def fake_open(self, *_args, **_kwargs):  # pylint: disable=unused-argument
+        raise OSError("disk full")
+
+    monkeypatch.setattr(gitmod.Path, "open", fake_open)
+
+    repo = gitmod.GitRepository(tmp_path)
+    with pytest.raises(OSError):
+        repo.write_commit_msg("commit-body")
