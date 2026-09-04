@@ -23,6 +23,8 @@ jobs:
       contents: write
       pull-requests: write
     uses: electrocucaracha/gh-workflows/.github/workflows/update.yml@a9808dbf8b9751a27d3f9304fef3d0a38f37e4a0 # v5.4.3
+    secrets:
+      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
   check-dockerfile:
     runs-on: ubuntu-latest
     permissions:
