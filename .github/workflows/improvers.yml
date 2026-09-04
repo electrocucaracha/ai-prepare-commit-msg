@@ -19,4 +19,4 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: electrocucaracha/gh-workflows/.github/workflows/improvers.yml@a9808dbf8b9751a27d3f9304fef3d0a38f37e4a0 # v5.4.3
+    uses: electrocucaracha/gh-workflows/.github/workflows/improvers.yml@13425cea26a65ca6969b8c989a3b0073f2122fe8 # v6.0.0
