@@ -11,6 +11,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.2.2] - 2026-09-04
+
+### Changed
+
+- Optimized the map-reduce summarization chain to support mixed diff shapes and variable chunk units, enabling more efficient summarization of oversized Git diffs. [5120c3fc](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/5120c3fc045d376dcb5d1c5d2e93d6c87ba114c8)
+
+## [15.2.1] - 2026-09-04
+
+### Changed
+
+- Upgraded all GitHub Actions workflow references to v6.0.0, ensuring compatibility with the latest features and bugfixes. [3dfed55e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/3dfed55e94164e2f688c9ef24382aad98f9b7dda)
+
+## [15.2.0] - 2026-09-04
+
+### Added
+
+- Enabled the reusable workflow to perform authenticated operations by making the WORKFLOW_TOKEN secret available to it. [aef5947d](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/aef5947d99f9997cc687a9cf4c35d77c9841a3a4)
+
+## [15.1.0] - 2026-09-04
+
+### Added
+
+- Enabled write permissions for contents and pull-requests in the Update Managed Version Files job, allowing it to update files and manage pull requests as expected. [e5d13a5a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e5d13a5acd4a5b219331e66f35b6b0a350ceb9ea)
+
+## [15.0.1] - 2026-09-04
+
+### Changed
+
+- Updated GitHub workflow actions to v5.4.3, ensuring compatibility and leveraging the latest features and maintenance for improvers, linter, release, and update CI jobs. [a7854f97](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/a7854f97eea994e5177383d43efa9bb63a70c824)
+
+## [15.0.0] - 2026-09-04
+
+### Removed
+
+- Simplified the GitHub Actions update workflow job to no longer require write access to contents and pull requests, reducing its security exposure and aligning with best practices for workflow security. [218a5e1c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/218a5e1c2e00c6f5655f61cb4274aef89e5da4de)
+
+## [14.1.0] - 2026-09-01
+
+### Added
+
+- Expanded the project's wordlist to improve spell checking and linting accuracy, and updated the CHANGELOG to provide detailed release notes for versions 10.0.0 through 14.0.0. [0b617248](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/0b617248820e81a45b8b5dbbbcb0405b63bc76c5)
+
 ## [14.0.0] - 2026-09-01
 
 ### Removed
