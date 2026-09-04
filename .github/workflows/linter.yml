@@ -48,7 +48,7 @@ jobs:
       contents: read
       models: read
       issues: write
-    uses: electrocucaracha/gh-workflows/.github/workflows/linter.yml@175cf595ec4d76504d63aec0f6e3f2a4b15ffe92 # v6.5.0
+    uses: electrocucaracha/gh-workflows/.github/workflows/linter.yml@51b5597c334c7ed813add274c426291771be1b4c # v6.7.0
     with:
       validate_overrides: |-
         {
@@ -58,3 +58,5 @@ jobs:
           "PYTHON_ISORT_CONFIG_FILE": "pyproject.toml",
           "PYTHON_RUFF_FORMAT_CONFIG_FILE": "pyproject.toml"
         }
+    secrets:
+      COPILOT_TOKEN: ${{ secrets.COPILOT_TOKEN }}
