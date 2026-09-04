@@ -20,21 +20,22 @@ LiteLLM-style completion API, and extract text from model responses. The
 public API is ``get_commit_msg`` which returns the concatenated textual
 output from the model's choices, plus ``get_compression_stats`` which
 reports how many prompt tokens Headroom saved. When a diff is too large for
-the model's context window even after Headroom compression, a per-file
-map-reduce summarization chain (``_summarize_diff``) is used to shrink the
-diff before falling back to ``OVERSIZED_DIFF_WARNING``.
+the model's context window even after Headroom compression, the map-reduce
+summarization chain in :mod:`ai_prepare_commit_msg.summarize` is used to
+shrink the diff before falling back to ``OVERSIZED_DIFF_WARNING``.
 """
 
 import concurrent.futures
 import logging
-import re
 from dataclasses import dataclass
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Any
 
 import litellm
 import yaml
+
+from .summarize import extract_choice_content as _extract_choice_content
+from .summarize import summarize_diff as _summarize_diff
 
 # Third-party compression errors must fall back to the original prompt.
 try:
@@ -50,48 +51,6 @@ MAX_PROMPT_TOKENS = 120_000
 OVERSIZED_DIFF_WARNING = (
     "Warning: staged diff is too large for AI commit message generation. "
     "Skipping the LLM request. Please write the commit message manually."
-)
-
-# Summarization chain: chunks are sized well below MAX_PROMPT_TOKENS so the
-# per-chunk summarization request (plus its system prompt) stays in budget.
-SUMMARIZATION_CHUNK_TOKENS = MAX_PROMPT_TOKENS // 6
-MAX_SUMMARIZATION_ROUNDS = 3
-MAX_SUMMARIZATION_WORKERS = 4
-SUMMARIZATION_TIMEOUT = 120  # seconds for the whole map step
-_FILE_DIFF_MARKER = "diff --git "
-
-# Machine-generated files inflate a diff without describing intent, so they are
-# reported from their diff stats instead of spending an LLM call on them.
-_LOW_SIGNAL_FILENAMES = frozenset(
-    {
-        "Cargo.lock",
-        "Gemfile.lock",
-        "composer.lock",
-        "go.sum",
-        "package-lock.json",
-        "pnpm-lock.yaml",
-        "poetry.lock",
-        "uv.lock",
-        "yarn.lock",
-    }
-)
-_LOW_SIGNAL_DIRS = frozenset(
-    {".terraform", "generated", "node_modules", "third_party", "vendor"}
-)
-_LOW_SIGNAL_SUFFIXES = (".min.css", ".min.js", ".map", ".snap", ".pb.go", "_pb2.py")
-
-_MAP_SUMMARY_SYSTEM_PROMPT = (
-    "You analyze the git diff of a single file. Reply with one to three short "
-    "bullet points describing exactly what changed and, where the diff makes "
-    "it evident, why. Name the specific functions, classes, constants, or "
-    "options that were added, removed, renamed, or modified. State only what "
-    "the diff shows and never guess at intent that is not visible. Do not "
-    "repeat the file path and do not include code or diff syntax."
-)
-_REDUCE_SUMMARY_SYSTEM_PROMPT = (
-    "Merge the following per-file change notes into a shorter list that still "
-    "preserves every distinct change. Group related changes together and drop "
-    "only redundancy, never detail that is unique to one file."
 )
 
 
@@ -259,61 +218,6 @@ def _compress_messages(
     return list(result.messages)
 
 
-def _extract_choice_content(choice: Any) -> str:
-    """Return the textual content for a model "choice".
-
-    Supports objects with a ``message`` attribute (which itself may be an
-    object or mapping), mapping choices with ``message.content`` or
-    ``text``, and falls back to the string form of ``choice``.
-
-    Examples
-    --------
-    >>> # object with .message that has .content
-    >>> class MsgObj:
-    ...     def __init__(self, content):
-    ...         self.content = content
-    >>> class Choice:
-    ...     def __init__(self, message):
-    ...         self.message = message
-    >>> _extract_choice_content(Choice(MsgObj("hello")))
-    'hello'
-
-    >>> # dict-like message with nested content
-    >>> _extract_choice_content({'message': {'content': 'hi'}})
-    'hi'
-
-    >>> # dict-like fallback to text
-    >>> _extract_choice_content({'text': 'plain text'})
-    'plain text'
-
-    >>> # plain string fallback
-    >>> _extract_choice_content('just a string')
-    'just a string'
-
-    >>> # message attribute present but None -> empty string
-    >>> _extract_choice_content(Choice(None))
-    ''
-
-    """
-    # Prefer explicit message attribute when present
-    if hasattr(choice, "message"):
-        msg = choice.message
-    elif isinstance(choice, dict):
-        # dict-like choice: prefer message, otherwise fall back to text
-        msg = choice.get("message", choice.get("text", ""))
-    else:
-        return str(choice)
-
-    if isinstance(msg, dict):
-        return msg.get("content", "") or ""
-
-    # msg might be an object with .content, or a plain string
-    if hasattr(msg, "content"):
-        return msg.content or ""
-
-    return str(msg) if msg is not None else ""
-
-
 def _estimate_prompt_tokens(model: str, messages: list[dict[str, str]]) -> int | None:
     """Estimate prompt tokens for a model request.
 
@@ -330,282 +234,6 @@ def _estimate_prompt_tokens(model: str, messages: list[dict[str, str]]) -> int |
     # pylint: enable=broad-exception-caught
 
     return int(prompt_tokens)
-
-
-def _count_tokens(model: str, text: str) -> int:
-    """Estimate the token count of plain text, falling back to a heuristic."""
-    # Token estimation is an optional safeguard and must never block generation.
-    # pylint: disable=broad-exception-caught
-    try:
-        return int(litellm.token_counter(model=model, text=text))
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("Unable to count tokens for model '%s': %s", model, exc)
-        return len(text) // 4  # rough heuristic: ~4 characters per token
-    # pylint: enable=broad-exception-caught
-
-
-def _split_diff_by_file(diff_message: str) -> list[str]:
-    """Split a unified diff into per-file sections, preserving the marker."""
-    parts = diff_message.split(_FILE_DIFF_MARKER)
-    if len(parts) <= 1:
-        return [diff_message] if diff_message else []
-
-    sections = [parts[0]] if parts[0] else []
-    sections.extend(_FILE_DIFF_MARKER + part for part in parts[1:])
-    return sections
-
-
-def _split_text_by_token_budget(
-    model: str, text: str, max_chunk_tokens: int
-) -> list[str]:
-    """Split ``text`` into chunks of at most ``max_chunk_tokens`` tokens."""
-    lines = text.splitlines(keepends=True)
-    chunks: list[str] = []
-    current: list[str] = []
-    current_tokens = 0
-
-    for line in lines:
-        line_tokens = _count_tokens(model, line)
-        if current and current_tokens + line_tokens > max_chunk_tokens:
-            chunks.append("".join(current))
-            current = []
-            current_tokens = 0
-        current.append(line)
-        current_tokens += line_tokens
-
-    if current:
-        chunks.append("".join(current))
-
-    return chunks
-
-
-def _file_path_from_section(section: str) -> str:
-    """Return the post-image path from a ``diff --git`` header line.
-
-    Examples
-    --------
-    >>> _file_path_from_section('diff --git a/src/app.py b/src/app.py\\n+x')
-    'src/app.py'
-    >>> _file_path_from_section('no header here')
-    ''
-
-    """
-    header = section.split("\n", 1)[0]
-    if not header.startswith(_FILE_DIFF_MARKER):
-        return ""
-
-    _, separator, new_path = header[len(_FILE_DIFF_MARKER) :].partition(" b/")
-    return new_path.strip().strip('"') if separator else ""
-
-
-def _is_low_signal_path(path: str) -> bool:
-    """Return ``True`` for machine-generated paths not worth an LLM call.
-
-    Examples
-    --------
-    >>> _is_low_signal_path('poetry.lock')
-    True
-    >>> _is_low_signal_path('web/node_modules/left-pad/index.js')
-    True
-    >>> _is_low_signal_path('src/app.py')
-    False
-
-    """
-    segments = path.split("/")
-    if segments[-1] in _LOW_SIGNAL_FILENAMES:
-        return True
-    if path.endswith(_LOW_SIGNAL_SUFFIXES):
-        return True
-    return any(segment in _LOW_SIGNAL_DIRS for segment in segments)
-
-
-def _file_change_stat(path: str, section: str) -> str:
-    """Describe a file's diff section from its headers and line counts.
-
-    These facts are derived rather than inferred, so they anchor the model
-    against hallucinated file names and change types.
-
-    Examples
-    --------
-    >>> _file_change_stat('a.py', 'diff --git a/a.py b/a.py\\n+one\\n-two')
-    '- a.py (modified, +1/-1)'
-
-    """
-    if re.search(r"^new file mode ", section, re.MULTILINE):
-        status = "added"
-    elif re.search(r"^deleted file mode ", section, re.MULTILINE):
-        status = "deleted"
-    elif re.search(r"^rename to ", section, re.MULTILINE):
-        status = "renamed"
-    elif re.search(r"^Binary files ", section, re.MULTILINE):
-        status = "binary"
-    else:
-        status = "modified"
-
-    added = removed = 0
-    for line in section.splitlines():
-        if line.startswith("+") and not line.startswith("+++"):
-            added += 1
-        elif line.startswith("-") and not line.startswith("---"):
-            removed += 1
-
-    stat = f"- {path or 'unknown path'} ({status}, +{added}/-{removed})"
-    if path and _is_low_signal_path(path):
-        return f"{stat} [generated; not analyzed]"
-    return stat
-
-
-def _summarize_text(
-    model: str, system_prompt: str, content: str, max_tokens: int = 512
-) -> str:
-    """Ask the model to summarize ``content``; return "" on failure."""
-    # Summarization is a best-effort compression step and must never raise.
-    # pylint: disable=broad-exception-caught
-    try:
-        response = litellm.completion(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": content},
-            ],
-            max_tokens=max_tokens,
-            drop_params=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Summarization request failed: %s", exc)
-        return ""
-    # pylint: enable=broad-exception-caught
-
-    choices = getattr(response, "choices", []) or []
-    contents = (_extract_choice_content(c) for c in choices)
-    return "\n".join(filter(None, (s.strip() for s in contents))).strip()
-
-
-def _build_map_work_items(
-    model: str, sections: list[tuple[str, str]]
-) -> list[tuple[str, str]]:
-    """Pair each file with the text to summarize, splitting oversized files."""
-    work: list[tuple[str, str]] = []
-    for path, section in sections:
-        label = path or "unknown path"
-        if _count_tokens(model, section) <= SUMMARIZATION_CHUNK_TOKENS:
-            work.append((label, section))
-            continue
-
-        parts = _split_text_by_token_budget(model, section, SUMMARIZATION_CHUNK_TOKENS)
-        work.extend(
-            (f"{label} (part {index}/{len(parts)})", part)
-            for index, part in enumerate(parts, start=1)
-        )
-    return work
-
-
-def _map_file_summaries(model: str, sections: list[tuple[str, str]]) -> list[str]:
-    """Summarize each file's diff independently, in parallel and time-bounded.
-
-    One request per file keeps a small change from being crowded out by a
-    large neighbour, which is the main source of lost detail when several
-    files share a single summarization call.
-    """
-    work = _build_map_work_items(model, sections)
-    if not work:
-        return []
-
-    ordered: list[str | None] = [None] * len(work)
-    executor = concurrent.futures.ThreadPoolExecutor(
-        max_workers=MAX_SUMMARIZATION_WORKERS
-    )
-    try:
-        futures = {
-            executor.submit(
-                _summarize_text,
-                model,
-                _MAP_SUMMARY_SYSTEM_PROMPT,
-                f"File: {label}\n\n{text}",
-                256,
-            ): index
-            for index, (label, text) in enumerate(work)
-        }
-        try:
-            for future in concurrent.futures.as_completed(
-                futures, timeout=SUMMARIZATION_TIMEOUT
-            ):
-                ordered[futures[future]] = future.result()
-        except concurrent.futures.TimeoutError:
-            logger.warning(
-                "Summarization map step exceeded %d seconds; using partial results.",
-                SUMMARIZATION_TIMEOUT,
-            )
-    finally:
-        executor.shutdown(wait=False, cancel_futures=True)
-
-    return [
-        f"- {work[index][0]}: {summary.strip()}"
-        for index, summary in enumerate(ordered)
-        if summary and summary.strip()
-    ]
-
-
-def _reduce_summaries(model: str, summaries: list[str]) -> str:
-    """Collapse per-file notes until they fit the summarization budget."""
-    text = "\n".join(summaries)
-
-    for _ in range(MAX_SUMMARIZATION_ROUNDS):
-        if _count_tokens(model, text) <= SUMMARIZATION_CHUNK_TOKENS:
-            break
-
-        groups = _split_text_by_token_budget(model, text, SUMMARIZATION_CHUNK_TOKENS)
-        reduced = [
-            summary
-            for group in groups
-            if (summary := _summarize_text(model, _REDUCE_SUMMARY_SYSTEM_PROMPT, group))
-        ]
-        if not reduced:
-            logger.warning("Reduce step produced no output; keeping current notes.")
-            break
-
-        text = "\n".join(reduced)
-
-    return text
-
-
-def _summarize_diff(model: str, diff_message: str) -> str:
-    """Compress an oversized diff into a file-anchored change report.
-
-    Every file contributes a deterministic stat line derived from the diff
-    headers, and every non-generated file is summarized on its own (map)
-    before the notes are collapsed to fit the budget (reduce). Returns the
-    original diff when no summary could be produced.
-    """
-    sections = [
-        (_file_path_from_section(section), section)
-        for section in _split_diff_by_file(diff_message)
-        if section.strip()
-    ]
-    if not sections:
-        return diff_message
-
-    skeleton = "\n".join(_file_change_stat(path, section) for path, section in sections)
-    analyzable = [
-        (path, section)
-        for path, section in sections
-        if not (path and _is_low_signal_path(path))
-    ]
-
-    summaries = _map_file_summaries(model, analyzable)
-    if not summaries:
-        logger.warning("Summarization chain produced no output; giving up.")
-        return diff_message
-
-    notes = _reduce_summaries(model, summaries)
-    logger.debug(
-        "Summarized %d file(s) (%d analyzed): %d -> %d chars",
-        len(sections),
-        len(analyzable),
-        len(diff_message),
-        len(notes),
-    )
-    return f"Files changed:\n{skeleton}\n\nWhat changed:\n{notes}"
 
 
 def _has_oversized_prompt_error(error: Exception) -> bool:

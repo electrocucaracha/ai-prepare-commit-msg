@@ -45,21 +45,56 @@ modification types,
 and added or removed line counts.
 This creates a ground-truth skeleton that the model can use without inventing missing file details.
 
-## Map phase: summarize each meaningful file
+For a change set wide enough to make the skeleton itself expensive,
+the list is capped and closed with a count of the remaining files.
+The prompt still states how large the change is,
+without spending its budget on an unbounded inventory.
 
-The summarization pass works file by file.
-It does the following:
+## Two units of work: chunks and parts
 
-- splits very large files into chunks when necessary
-- isolates each file or chunk into its own request
-- asks for a short summary of the actual change
-- preserves function, class, and constant names when they are relevant
+The rest of the pipeline works with two terms:
 
-This avoids a single large file drowning out smaller but more important edits.
+- a **chunk** is one summarization request
+- a **part** is one fragment of a file that is too large to summarize in a single request
+
+Every chunk holds either one part,
+one whole file,
+or several whole files.
+That single vocabulary is what lets the chain adapt to very different change sets
+without changing its shape.
+
+## Map phase: summarize each chunk
+
+The summarization pass plans chunks first,
+then sends one request per chunk.
+Planning walks the diff in order,
+so files that sit next to each other stay in the same request.
+
+| Change set                         | Planning outcome                                                    |
+| ---------------------------------- | ------------------------------------------------------------------- |
+| One file larger than the budget    | Split into numbered parts, one request per part                     |
+| Many files with small diffs        | Packed together until the token budget or the file limit is reached |
+| A few files with substantial diffs | One request each, because a second file would not fit               |
+| Mixed sizes                        | Pending files are sent before the split file, preserving diff order |
+
+Each chunk also gets the prompt that matches its shape.
+A whole-file chunk asks for a short summary of that file.
+A part asks for a summary of that fragment only,
+and states that the other fragments are handled elsewhere.
+A multi-file chunk asks for one bullet per file,
+so a trivial edit still gets its own line instead of being folded into another file's note.
+
+Two failure modes disappear as a result.
+A large file no longer drowns out smaller but more important edits,
+because it is split instead of truncated.
+A change touching dozens of small files no longer costs dozens of requests,
+because those files travel together.
+The number of requests tracks the size of the change,
+not the number of files in it.
 
 ## Reduce phase: merge notes back together
 
-Once the per-file summaries exist,
+Once the per-chunk summaries exist,
 the pipeline merges them until they fit the allowed summarization budget.
 It keeps unique changes,
 removes duplicated observations,
@@ -86,5 +121,11 @@ The final prompt reaches the model with a compact, grounded description of the s
 The commit message then reflects the actual intent of the diff,
 without overwhelming the model with unrelated churn or generated artifacts.
 
+The budgets themselves —
+chunk size, files per chunk, skeleton cap, reduce rounds, and the map timeout —
+are named constants in the summarization module,
+so they are read and tuned in one place rather than scattered through the pipeline.
+
 See [How the hook works](how-it-works.md) for the overall lifecycle,
-and [Headroom prompt compression](headroom-integration.md) for the optional token-saving layer.
+[Headroom prompt compression](headroom-integration.md) for the optional token-saving layer,
+and [Configuration](../references/configuration.md) for the settings you can change yourself.
