@@ -196,7 +196,7 @@ def test_map_chunks_returns_empty_list_without_chunks(monkeypatch):
 
     monkeypatch.setattr(summarize, "summarize_text", fail)
 
-    assert summarize.map_chunks("mymodel", []) == []
+    assert not summarize.map_chunks("mymodel", [])
 
 
 def test_map_chunks_labels_single_file_notes_by_path(monkeypatch):
@@ -246,7 +246,7 @@ def test_map_chunks_keeps_partial_results_on_timeout(monkeypatch):
 
     chunk = summarize.DiffChunk("a.py", "diff a", "sys", ("a.py",))
 
-    assert summarize.map_chunks("mymodel", [chunk]) == []
+    assert not summarize.map_chunks("mymodel", [chunk])
 
 
 def test_diff_chunk_reply_tokens_scale_with_file_count():
