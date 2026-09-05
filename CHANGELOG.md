@@ -11,6 +11,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.4.2] - 2026-09-04
+
+### Changed
+
+- Enabled consistent Markdown formatting across the project by enforcing standardized YAML styles in the agent configuration file, specifically using array notation for tool listing. [419bebc0](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/419bebc02621f4a4eda08028abd896ab7f1bbce4)
+
+## [15.4.1] - 2026-09-04
+
+### Changed
+
+- Optimized map_chunks test assertions to use 'not' instead of equality checks, enhancing test expressiveness without altering behavior. [857791cb](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/857791cb588bf5627264054ed995500148e8fe18)
+
+## [15.4.0] - 2026-09-04
+
+### Added
+
+- Enabled principal software engineers with expert-level engineering guidance balancing craft excellence with pragmatic delivery through actionable guidelines on clean code, quality attributes, and technical leadership. [9570ee8a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/9570ee8a2cbb0d20bb7521eba56b7708e721c574)
+
+## [15.3.10] - 2026-09-04
+
+### Changed
+
+- Updated reusable GitHub Actions in the improvers, linter, release, and update workflows to v7.0.6, allowing users to benefit from the latest improvements and fixes without any breaking behavior or API changes. [99adbbfa](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/99adbbfadec619fdb2e7aff9da13862ff54687e7)
+
+## [15.3.9] - 2026-09-04
+
+### Changed
+
+- Updated GitHub workflow actions to version 7.0.5, ensuring consistency across the pipeline and leveraging the latest improvements and fixes without altering workflow logic. [12eed2ef](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/12eed2ef313a96b92586eb8a35585a1a7363e6c3)
+
+## [15.3.8] - 2026-09-04
+
+### Changed
+
+- Updated reusable workflow dependencies to v7.0.0, incorporating upstream improvements and ensuring continued compatibility with enhancements and fixes from the provider. [b059710b](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/b059710b410e0d68928b45ef35cc3a520170fe16)
+
+## [15.3.7] - 2026-09-04
+
+### Changed
+
+- Optimized workflow reliability and consistency by updating reusable workflows to the latest version, v6.7.1. [ea99989c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/ea99989ce94d6b8c048dc2ce563879174dd0c1ea)
+
+## [15.3.6] - 2026-09-04
+
+### Changed
+
+- Enabled GitHub workflows to use version 6.7.0 and introduced the COPILOT_TOKEN secret to improvers and linter jobs, ensuring compatibility with updated workflow requirements and enabling new features. [b96acf8d](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/b96acf8d9e98e3d29b3cc5c9251762347b604062)
+
+## [15.3.5] - 2026-09-04
+
+### Changed
+
+- Optimized GitHub workflow templates to use version v6.5.0 of electrocucaracha/gh-workflows, benefiting four workflows with recent bugfixes and enhancements. [81e3863f](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/81e3863feefd5d6daada536966ec9b799c2762b9)
+
+## [15.3.4] - 2026-09-04
+
+### Changed
+
+- Upgraded all referenced GitHub workflows actions to v6.3.3 to incorporate the latest security and reliability enhancements, ensuring the project benefits from upstream improvements without introducing any breaking behavior or migration requirements. [7e7c485e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/7e7c485eed993100b67847ba36138b77980e9fc0)
+
+## [15.3.3] - 2026-09-04
+
+### Changed
+
+- Stabilized the project by updating multiple Python package versions in uv.lock to bring in bugfixes, new features, and compatibility improvements from upstream dependencies, with no application code changes. [ae665a85](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/ae665a8504a02cae49380cb9911187061ed2efe4)
+
+## [15.3.2] - 2026-09-04
+
+### Changed
+
+- Optimized code linting by updating the ruff-pre-commit hook to version 0.16.6, ensuring developers benefit from the latest fixes and improvements without introducing any breaking behavior or migration requirements. [c1801fe9](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c1801fe92f696dd5ffe003e590827cc2a1492879)
+
+## [15.3.1] - 2026-09-04
+
+### Changed
+
+- Upgraded GitHub Actions workflows to use version 6.2.2 of electrocucaracha/gh-workflows, bringing improvements and bugfixes that ensure consistency and access to the latest enhancements. [70c437c8](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/70c437c8a5e8917aaccb1c7bfe3c256fd872b4e5)
+
+## [15.3.0] - 2026-09-04
+
+### Added
+
+- Updated the wordlist to enhance spell checking and expanded the CHANGELOG to document improvements to summarization, workflow permissions, and action version upgrades. [16d0ccfb](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/16d0ccfb050278670a95eb7405e10f662b229063)
+
 ## [15.2.2] - 2026-09-04
 
 ### Changed
