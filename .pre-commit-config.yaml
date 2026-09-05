@@ -48,6 +48,11 @@ repos:
     hooks:
       - id: markdownlint
         files: \.(md|mdown|markdown)$
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.9.6
+    hooks:
+      - id: prettier
+        types_or: [markdown]
   - repo: local
     hooks:
       - id: ai-prepare-commit
