@@ -243,6 +243,7 @@ GitRepository
 Git's
 GPT
 HeadroomCallback
+headroomlabs
 Hettinger's
 href
 https
@@ -267,9 +268,11 @@ LiteLLM
 LiteLLM's
 LLM
 lockfiles
+lossy
 Makefile
 markdownlint
 Markdownlint
+MCP
 metadata
 migrat
 ModelResponse
