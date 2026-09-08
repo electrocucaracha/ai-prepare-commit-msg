@@ -50,6 +50,17 @@ the list is capped and closed with a count of the remaining files.
 The prompt still states how large the change is,
 without spending its budget on an unbounded inventory.
 
+For a small change touching two files,
+the skeleton looks like this:
+
+```text
+- src/app.py (modified, +12/-3)
+- poetry.lock (modified, +40/-2) [generated; not analyzed]
+```
+
+`poetry.lock` is skipped from the map phase entirely,
+but it still appears in the skeleton so the final report accounts for every changed file.
+
 ## Two units of work: chunks and parts
 
 The rest of the pipeline works with two terms:
@@ -69,6 +80,12 @@ The summarization pass plans chunks first,
 then sends one request per chunk.
 Planning walks the diff in order,
 so files that sit next to each other stay in the same request.
+
+Chunks are summarized concurrently, up to a small worker limit,
+and the whole map step is bounded by a timeout.
+If that timeout is reached,
+the chain proceeds with whatever chunk summaries completed in time,
+rather than blocking the commit indefinitely on one slow request.
 
 | Change set                         | Planning outcome                                                    |
 | ---------------------------------- | ------------------------------------------------------------------- |
@@ -107,13 +124,14 @@ and which files matter most.
 
 ## Fallback behavior
 
-If the summarization chain fails,
-the hook falls back to the original diff.
-If the resulting prompt still exceeds the budget,
-the tool emits a safe oversized-diff warning and stops instead of sending a broken request.
+If the summarization chain produces no chunk summaries at all,
+it falls back to the original diff.
+If the resulting prompt still exceeds the budget after that,
+the tool skips the LLM call entirely and returns a safe oversized-diff warning
+instead of sending a request the provider would reject.
 
 That turn of behavior matters:
-most commit-generation workflows prefer a controlled failure over a bad or blank message.
+most commit-generation workflows prefer a controlled, visible fallback over a bad or blank message.
 
 ## Practical outcome
 
