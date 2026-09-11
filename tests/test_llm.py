@@ -99,8 +99,11 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
         def __init__(self, choices):
             self.choices = choices
 
+    seen_kwargs = {}
+
     def fake_completion(messages, model, **kwargs):  # pylint: disable=unused-argument
         # return a mixture of object choice and dict/text choice
+        seen_kwargs.update(kwargs)
         return Resp([ChoiceObj(Msg("generated")), {"text": "more"}])
 
     # Monkeypatch the litellm completion function in the imported module
@@ -109,6 +112,28 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
 
     result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
     assert result == "generated\nmore"
+    assert seen_kwargs["extra_headers"] == {}
+
+
+def test_get_extra_headers_reads_json_environment_variable(monkeypatch):
+    """Optional request headers are loaded as string values."""
+    monkeypatch.setenv(
+        "LITELLM_EXTRA_HEADERS_JSON",
+        '{"X-Request-Source":"local","X-Request-Mode":"test"}',
+    )
+
+    assert llm._get_extra_headers() == {
+        "X-Request-Source": "local",
+        "X-Request-Mode": "test",
+    }
+
+
+def test_get_extra_headers_rejects_non_string_values(monkeypatch):
+    """Header configuration must contain only string values."""
+    monkeypatch.setenv("LITELLM_EXTRA_HEADERS_JSON", '{"X-Retry": 1}')
+
+    with pytest.raises(ValueError, match="JSON object of strings"):
+        llm._get_extra_headers()
 
 
 def test_get_commit_msg_skips_oversized_diff_when_summarization_does_not_help(

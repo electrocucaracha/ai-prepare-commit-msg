@@ -26,7 +26,9 @@ shrink the diff before falling back to ``OVERSIZED_DIFF_WARNING``.
 """
 
 import concurrent.futures
+import json
 import logging
+import os
 from dataclasses import dataclass
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -249,6 +251,26 @@ def _has_oversized_prompt_error(error: Exception) -> bool:
     return any(marker in message for marker in oversized_markers)
 
 
+def _get_extra_headers() -> dict[str, str]:
+    """Load optional LiteLLM request headers from the environment."""
+    raw_headers = os.getenv("LITELLM_EXTRA_HEADERS_JSON", "").strip()
+    if not raw_headers:
+        return {}
+
+    try:
+        headers = json.loads(raw_headers)
+    except json.JSONDecodeError as error:
+        raise ValueError("LITELLM_EXTRA_HEADERS_JSON must be valid JSON") from error
+
+    if not isinstance(headers, dict) or not all(
+        isinstance(key, str) and isinstance(value, str)
+        for key, value in headers.items()
+    ):
+        raise ValueError("LITELLM_EXTRA_HEADERS_JSON must be a JSON object of strings")
+
+    return headers
+
+
 def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
     load_custom_providers()
@@ -289,6 +311,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
             messages=messages,
             max_tokens=1024,
             drop_params=True,
+            extra_headers=_get_extra_headers(),
         )
         logger.debug("Sent prompt to model '%s'; awaiting response", model)
         return response
