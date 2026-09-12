@@ -6,98 +6,116 @@ nav_order: 2
 
 # Headroom prompt compression
 
-This project uses Headroom's inline Python API to optionally compress the prompt before it reaches LiteLLM.
-The feature is not required for correctness,
-but it can reduce the cost and context-window pressure of a large staged diff.
+This project uses Headroom's inline Python API to reduce the size of large prompts
+before they reach LiteLLM.
+The compression is optional.
+It can lower token use and reduce pressure on the model's context window,
+but it is not required to generate a commit message.
 
-## Why this exists
+## Why the project uses it
 
-The main request contains two things:
-the prompt policy and the staged diff.
-When the diff is large,
-compression removes low-value context while keeping the actual change set intact.
-The project still enforces its own token budget and rejects requests that remain too large.
+The prompt contains the commit-message instructions and the staged Git diff.
+Large diffs can repeat file headers,
+context lines,
+and other information that is less useful to the model.
+Headroom removes some of that repetition while keeping the important shape of the change.
 
-Headroom is therefore an optimization layer,
-not the core model interface.
-This integration does not run Headroom as a proxy,
-enable its MCP tools,
-or depend on its Compress-Cache-Retrieve (CCR) retrieval flow.
-If compression is unavailable or fails,
-the hook continues with the original messages.
+The project still owns the final size check.
+Headroom reduces the prompt;
+it does not guarantee that every prompt fits the model's context window.
 
-## What the project does
+This integration uses Headroom as an inline library.
+It does not run Headroom as a proxy,
+use its MCP tools,
+or depend on its Compress-Cache-Retrieve (CCR) flow.
 
-The project passes LiteLLM's message list to `headroom.compress.compress()`.
-Headroom examines each message's content and routes recognized structures to an appropriate compressor.
-For a unified staged diff,
-that route is Headroom's diff compressor;
-the same pipeline can also handle structured data such as JSON, logs, tables, configuration, and plain text.
+## How the integration works
 
-The integration sets `compress_user_messages=True` and `protect_recent=0`.
-These settings are essential here:
-the staged diff is deliberately the final user message,
-so the default protections for user and recent messages would otherwise make it ineligible for compression.
-The configured model and the project's `120,000`-token guardrail are passed to Headroom,
-allowing it to use the model-aware token accounting expected by the request.
+The project loads the configured prompt messages and appends the staged diff as the last user message.
+It passes the complete list to `headroom.compress.compress()`.
 
-Headroom's router applies safety gates before transforming content.
-Small content, unrecognized content, and a transform that does not save tokens can pass through unchanged.
-The upstream library also fails open when a structural transform cannot safely run.
-The hook adds its own broader fail-open boundary around the Headroom call,
-so an import or runtime failure cannot block a commit.
+Headroom examines message content and chooses a suitable content-aware transform.
+For a unified diff,
+that can be the diff transform.
+The same routing system supports other content types,
+including JSON,
+logs,
+tables,
+configuration,
+and plain text.
 
-The request path is:
+The project sets `compress_user_messages=True` because the staged diff is a user message.
+It sets `protect_recent=0` so the final diff message is eligible for compression.
+The project also passes the configured model and its `120,000`-token limit,
+which lets Headroom use model-aware token accounting.
 
-1. Build the LiteLLM message list.
-2. Append the staged diff as the final user message.
-3. Compress the complete message list when Headroom is available.
-4. Estimate the resulting prompt length with LiteLLM.
-5. When it still exceeds the guardrail, summarize the diff, compress again, and re-estimate.
-6. Proceed only when the final prompt is within the project's guardrail.
+Headroom returns the messages after transformation,
+the token counts before and after compression,
+and the transforms it applied.
+The project records those counts only when Headroom provides a positive baseline.
 
-![Headroom compression request flow from the Git hook to the generated commit message](../assets/diagrams/headroom-compression.png)
+See the [Headroom compression sequence diagram source](../assets/diagrams/headroom-sequence.drawio)
+for the complete component and message flow.
 
-## What gets preserved
+The diagram shows the boundary between the project,
+Headroom,
+LiteLLM,
+and the model provider.
+Headroom performs the optional transformation;
+LiteLLM estimates the resulting prompt;
+the provider generates the commit message only after the size check passes.
 
-Headroom is a lossy compression layer,
-not a byte-for-byte representation of the diff.
-Its diff-aware route is designed to preserve the information most useful for understanding a patch.
-In practice this includes:
+If the estimate is still above `MAX_PROMPT_TOKENS`,
+the project replaces the diff with its map-reduce summary.
+It compresses and measures the new prompt again.
+If the prompt remains too large,
+the project skips the model request and returns a warning.
 
-- patch structure and file boundaries
-- added and removed lines that carry change information
-- relevant hunks and contextual signals
+## What compression preserves
 
-It can reduce surrounding context, repeated headers, and low-value boilerplate.
-The exact result depends on the diff's size, redundancy, and shape;
-the project should not treat a particular compression ratio or every individual line as guaranteed.
+Headroom is lossy.
+The compressed result is not a byte-for-byte copy of the diff.
+Its diff-aware transform is intended to preserve information that helps a model understand a patch,
+including:
 
-## Token metrics and fallback
+- file boundaries and patch structure
+- meaningful added and removed lines
+- relevant hunks and nearby context
 
-The project records token counts before and after compression.
-Those values are printed in the CLI output when available,
-for example:
+It can remove repeated headers,
+surrounding context,
+and other low-value boilerplate.
+The result depends on the size and shape of the diff,
+so the project does not promise a fixed compression ratio or preservation of every line.
+
+## Fallback behavior
+
+The integration fails open.
+If Headroom is not installed,
+cannot be imported,
+throws an exception,
+or returns no usable token baseline,
+the project keeps the original messages.
+An unchanged result is also valid when the content is too small,
+unrecognized,
+unsafe to transform,
+or unlikely to save tokens.
+
+These fallbacks keep an optimization failure from blocking the Git hook.
+The project still handles an oversized prompt separately:
+it summarizes the diff,
+checks the result again,
+and stops safely when the prompt remains above the limit.
+
+The CLI reports compression metrics when they are available:
 
 ```console
 Headroom: 2395 -> 2131 prompt tokens over 1 request(s); saved 264 (11.0%).
 ```
 
-If compression is unavailable or throws an error,
-the hook falls back to the original messages without failing the commit flow.
-Likewise,
-a result without a positive token baseline is discarded and the original message list is used.
-This is intentional: compression is a cost-saving optimization, not a required dependency.
-
-## Limits
-
-Headroom does not replace the project's guardrails.
-The final token check still enforces the maximum prompt budget,
-and the system still stops on provider context-limit errors.
-
-This keeps the project safe:
-Headroom can reduce cost for large diffs,
-but it cannot guarantee that an arbitrarily large diff will fit into any model context.
+The counts describe the compression calls made in the current process.
+They are useful for observing savings,
+not a promise about every diff.
 
 ## Further reading
 

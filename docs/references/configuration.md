@@ -23,6 +23,7 @@ CLI values take precedence over values supplied by an environment variable.
 | `LITELLM_PROXY_MODEL`            | LiteLLM model ID for commit generation. Used when `--model` is not provided.                               |
 | `LITELLM_PROXY_API_BASE`         | LiteLLM proxy base URL.                                                                                    |
 | `LITELLM_PROXY_API_KEY`          | LiteLLM proxy API key, if required.                                                                        |
+| `LITELLM_EXTRA_HEADERS_JSON`     | Optional JSON object of string request headers passed to LiteLLM.                                          |
 | `AI_PREPARE_COMMIT_AUTO_APPROVE` | Enable automatic approval, which skips the `[Y/n]` confirmation and writes the generated message directly. |
 
 ### Provider-specific keys
@@ -51,6 +52,18 @@ when the selected model requires them.
 | Variable          | Description                                            |
 | ----------------- | ------------------------------------------------------ |
 | `OPENAI_BASE_URL` | Base URL for a self-hosted OpenAI-compatible endpoint. |
+
+### Additional request headers
+
+Use `LITELLM_EXTRA_HEADERS_JSON` when a provider or gateway requires
+additional HTTP headers:
+
+```bash
+export LITELLM_EXTRA_HEADERS_JSON='{"X-Request-Source":"local"}'
+```
+
+The value must be a JSON object whose keys and values are strings.
+Unset the variable when the provider does not require additional headers.
 
 ## GitHub Copilot models
 
