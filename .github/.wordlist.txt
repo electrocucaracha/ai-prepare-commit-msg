@@ -160,6 +160,7 @@ discoverability
 Dockerfile
 docstrings
 dotenv
+drawio
 DummyLite
 DummyRepo
 eab
