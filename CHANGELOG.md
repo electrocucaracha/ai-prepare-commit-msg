@@ -11,6 +11,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [16.3.0] - 2026-09-12
+
+### Added
+
+- Enabled the project to tolerate the term "drawio" in spell checks, preventing CI failures for this project-specific term. [40374ffe](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/40374ffee99f2c78c17c386c1937010db5d9af56)
+
+## [16.2.1] - 2026-09-12
+
+### Changed
+
+- Optimized the Headroom integration to improve clarity and usability by introducing a new sequence diagram for compression rationale and operation, and enhancing the summarization chain diagram to better illustrate worker pool and queueing behavior. [525f7bb0](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/525f7bb0d67b0241810fe6deeac6dd40f5667694)
+
+## [16.2.0] - 2026-09-10
+
+### Added
+
+- Enabled users to customize per-request headers without code changes by introducing support for custom LiteLLM headers via the LITELLM_EXTRA_HEADERS_JSON environment variable, which must be a JSON object with string values. [b255f833](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/b255f833e68eabb500f46921d73112f5ea14ea9c)
+
+## [16.1.3] - 2026-09-08
+
+### Changed
+
+- Optimized the summarization chain flow to provide early exit for diffs within token budget, improved concurrent chunk processing with safety-focused fallback logic, and clarified handling for low-signal files and oversized diffs. [0e426eb0](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/0e426eb035271ecd5450d703678bb7b0094d2719)
+
+## [16.1.2] - 2026-09-08
+
+### Changed
+
+- Clarified the headroom integration explanation to provide a clearer description of project behavior and integration boundaries for users and maintainers. [4e5365c8](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/4e5365c8e985d633581e22a2e38940bc77a74bd6)
+
+## [16.1.1] - 2026-09-08
+
+### Changed
+
+- Simplified the initial setup and project understanding for new users by clarifying the project's purpose and benefits through a rewritten index page and updated documentation. [67a4bfa0](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/67a4bfa0b0ab04c490eee7a35356568d590bdee3)
+
+## [16.1.0] - 2026-09-04
+
+### Added
+
+- Expanded the project wordlist to improve spell check accuracy during Continuous Integration and enhanced project traceability by updating the CHANGELOG to document recent features and enhancements. [dc0d5172](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/dc0d51722dde6f410a132cc7998d5b4f34ded184)
+
+## [16.0.0] - 2026-09-04
+
+### Removed
+
+- Simplified the spell checking process by removing the reviewdog misspell job and relying solely on pyspelling for spell checking, resulting in reduced maintenance burden for the spell checking process. [c0453914](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c0453914ae77bd79236946a17a1ee22df968c328)
+
 ## [15.4.2] - 2026-09-04
 
 ### Changed
