@@ -14,6 +14,10 @@ cleanup:
 	rm -rf node_modules
 	rm -rf .tox/ .venv/
 
+# Biome has no JS/TS/JSON sources to format in this repo, and the
+# pre-commit hooks include a local "uv run prepare-commit" hook that the
+# super-linter container can't execute, so both validators are disabled
+# via the overrides below.
 .PHONY: lint
 lint: cleanup
 	sudo -E $(DOCKER_CMD) run --rm -v $$(pwd):/tmp/lint \
