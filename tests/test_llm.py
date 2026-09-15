@@ -34,23 +34,32 @@ def _raise_timeout(self, timeout=None):  # pylint: disable=unused-argument
     raise llm.concurrent.futures.TimeoutError("future did not complete in time")
 
 
+class _Msg:
+    """Message-like object with ``content``, shared across LLM response fakes."""
+
+    def __init__(self, content):
+        self.content = content
+
+
+class _Choice:
+    """Choice-like object with ``message``, shared across LLM response fakes."""
+
+    def __init__(self, message):
+        self.message = message
+
+
+class _Response:
+    """Response-like object exposing a ``choices`` sequence."""
+
+    def __init__(self, choices):
+        self.choices = choices
+
+
 def test__extract_choice_content_various_shapes():
     """Various model choice shapes are normalized to text."""
 
-    class MsgObj:
-        """Simple object holding a ``content`` attribute."""
-
-        def __init__(self, content):
-            self.content = content
-
-    class ChoiceObj:
-        """Simple object holding a ``message`` attribute."""
-
-        def __init__(self, message):
-            self.message = message
-
     # object with .message that has .content
-    assert llm._extract_choice_content(ChoiceObj(MsgObj("hello"))) == "hello"
+    assert llm._extract_choice_content(_Choice(_Msg("hello"))) == "hello"
 
     # dict-like message with nested content
     assert llm._extract_choice_content({"message": {"content": "hi"}}) == "hi"
@@ -62,7 +71,7 @@ def test__extract_choice_content_various_shapes():
     assert llm._extract_choice_content("just a string") == "just a string"
 
     # message attribute present but None -> empty string
-    assert llm._extract_choice_content(ChoiceObj(None)) == ""
+    assert llm._extract_choice_content(_Choice(None)) == ""
 
 
 def test_compression_stats_savings_ratio_is_zero_without_baseline():
@@ -81,30 +90,12 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
         llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
     )
 
-    class Msg:
-        """Message-like object with ``content``."""
-
-        def __init__(self, content):
-            self.content = content
-
-    class ChoiceObj:
-        """Choice-like object with ``message`` attribute."""
-
-        def __init__(self, message):
-            self.message = message
-
-    class Resp:
-        """Response-like object exposing a ``choices`` sequence."""
-
-        def __init__(self, choices):
-            self.choices = choices
-
     seen_kwargs = {}
 
     def fake_completion(messages, model, **kwargs):  # pylint: disable=unused-argument
         # return a mixture of object choice and dict/text choice
         seen_kwargs.update(kwargs)
-        return Resp([ChoiceObj(Msg("generated")), {"text": "more"}])
+        return _Response([_Choice(_Msg("generated")), {"text": "more"}])
 
     # Monkeypatch the litellm completion function in the imported module
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
@@ -179,27 +170,9 @@ def test_get_commit_msg_uses_summarization_chain_for_oversized_diff(monkeypatch)
 
     seen_messages: list[list[dict[str, str]]] = []
 
-    class Msg:
-        """Message-like object with ``content``."""
-
-        def __init__(self, content):
-            self.content = content
-
-    class ChoiceObj:
-        """Choice-like object with ``message`` attribute."""
-
-        def __init__(self, message):
-            self.message = message
-
-    class Resp:
-        """Response-like object exposing a ``choices`` sequence."""
-
-        def __init__(self, choices):
-            self.choices = choices
-
     def fake_completion(messages, model, **kwargs):  # pylint: disable=unused-argument
         seen_messages.append(messages)
-        return Resp([ChoiceObj(Msg("generated from summary"))])
+        return _Response([_Choice(_Msg("generated from summary"))])
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
 
