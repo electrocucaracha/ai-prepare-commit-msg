@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [16.6.0] - 2026-09-15
+
+### Added
+
+- Enabled explicit justification for all lint suppressions in the Makefile, ensuring each suppression is necessary to avoid false-positive failures or breaking underlying constraints. [7923ae61](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/7923ae61789d6b51ecd6452bb2f4e96765b83b9c)
+
+## [16.5.1] - 2026-09-15
+
+### Changed
+
+- Simplified test code maintainability by consolidating repeated helper classes into shared module-level helpers, reducing duplication by approximately 62%. [93e0e482](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/93e0e482e44de98c1baab50af1932c5d2ba88290)
+
+## [16.5.0] - 2026-09-15
+
+### Added
+
+- Stabilized code coverage for the src/ai_prepare_commit_msg module by introducing targeted unit tests that ensure all scenarios are accounted for. [90aa4449](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/90aa444906d554c05dd4bdd88ca51aa33b453a03)
+
+## [16.4.1] - 2026-09-15
+
+### Changed
+
+- Updated GitHub Actions workflows to use the latest versions of dependencies, specifically aiohttp version 3.14.3, to improve the reliability and performance of the workflows without introducing breaking behavior or security issues. [8c4f9933](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8c4f9933f6b08b5ade7e20da5e5367de24192211)
+
+## [16.4.0] - 2026-09-12
+
+### Added
+
+- Improved spell check accuracy during Continuous Integration by expanding the project's wordlist to include additional project and domain-specific terminology. [e0636d0d](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e0636d0db4a318ad9492e0bf096179bb2913091c)
+
 ## [16.3.0] - 2026-09-12
 
 ### Added
