@@ -258,6 +258,13 @@ def test_diff_chunk_reply_tokens_scale_with_file_count():
     assert grouped.reply_tokens > single.reply_tokens
 
 
+def test_format_note_returns_empty_string_when_summary_has_no_content():
+    """A summary made only of blank lines and bullet markers yields no note."""
+    chunk = summarize.DiffChunk("a.py", "diff a", "sys", ("a.py",))
+
+    assert summarize._format_note(chunk, "  \n- \n* \n") == ""
+
+
 def test_summarize_text_returns_joined_choices(monkeypatch):
     """A summarization request joins the returned choice contents."""
 

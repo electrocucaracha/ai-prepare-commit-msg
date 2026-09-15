@@ -136,6 +136,14 @@ def test_get_extra_headers_rejects_non_string_values(monkeypatch):
         llm._get_extra_headers()
 
 
+def test_get_extra_headers_rejects_malformed_json(monkeypatch):
+    """Malformed JSON in the environment variable raises a clear error."""
+    monkeypatch.setenv("LITELLM_EXTRA_HEADERS_JSON", "{not-valid-json")
+
+    with pytest.raises(ValueError, match="must be valid JSON"):
+        llm._get_extra_headers()
+
+
 def test_get_commit_msg_skips_oversized_diff_when_summarization_does_not_help(
     monkeypatch,
 ):
