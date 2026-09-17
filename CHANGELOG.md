@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [16.9.0] - 2026-09-17
+
+### Added
+
+- Enabled dynamic determination of maximum input sizes for each model, allowing for more robust handling of varying context windows and custom provider aliases. [28b5ad19](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/28b5ad19de13cd87bddecfa7a8750364d6f03137)
+
+## [16.8.0] - 2026-09-15
+
+### Added
+
+- Expanded the GitHub wordlist with the entries 'ade', 'baab', and 'bdd' to improve coverage for automated workflows or code validation dependent on this list. [0148edce](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/0148edcee288c5e653589b9d002d057a528a3965)
+
+## [16.7.0] - 2026-09-15
+
+### Added
+
+- Enabled accurate tracking of recent releases with the addition of entries in the CHANGELOG, including features, dependency updates, improved test coverage, refactored helpers, and explicit lint suppression justifications, without introducing breaking behavior or security issues. [80d20a6c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/80d20a6c8196265ec455ee8da7dde5e1b9975584)
+
 ## [16.6.0] - 2026-09-15
 
 ### Added
