@@ -21,10 +21,26 @@ or fail outright when the prompt exceeds the configured budget.
 
 The project therefore protects generation with two steps:
 
-1. A token-budget check.
+1. A model-aware token-budget check.
 2. A summarized fallback when the raw diff is still too large.
 
 ![Summarization chain from the staged diff to the final commit message prompt](../assets/diagrams/summarization-chain.png)
+
+## The budget follows the model
+
+Before the hook plans any summarization work,
+it asks LiteLLM for the configured model's `max_input_tokens` value.
+The hook reserves 1,024 tokens for the response.
+If LiteLLM has no metadata for the model,
+the hook uses an 8,192-token context-window fallback,
+which leaves 7,168 tokens for the prompt.
+
+The chunk budget is one sixth of that resolved prompt limit.
+A smaller-context model therefore receives smaller map and reduce requests,
+while a larger-context model can process larger chunks with fewer calls.
+The same resolved prompt limit governs Headroom compression,
+the initial oversized-prompt check,
+and the check after summarization.
 
 ## Deterministic preprocessing
 
@@ -104,6 +120,8 @@ so a trivial edit still gets its own line instead of being folded into another f
 Two failure modes disappear as a result.
 A large file no longer drowns out smaller but more important edits,
 because it is split instead of truncated.
+A single line that exceeds the chunk budget is split further,
+so minified content or an unusually long data line cannot bypass the limit.
 A change touching dozens of small files no longer costs dozens of requests,
 because those files travel together.
 The number of requests tracks the size of the change,
@@ -139,10 +157,12 @@ The final prompt reaches the model with a compact, grounded description of the s
 The commit message then reflects the actual intent of the diff,
 without overwhelming the model with unrelated churn or generated artifacts.
 
-The budgets themselves —
-chunk size, files per chunk, skeleton cap, reduce rounds, and the map timeout —
-are named constants in the summarization module,
-so they are read and tuned in one place rather than scattered through the pipeline.
+The prompt and chunk token budgets follow LiteLLM's metadata for the selected model.
+The files-per-chunk limit,
+skeleton cap,
+reduce rounds,
+worker count,
+and map timeout remain named safeguards in the summarization module.
 
 See [How the hook works](how-it-works.md) for the overall lifecycle,
 [Headroom prompt compression](headroom-integration.md) for the optional token-saving layer,

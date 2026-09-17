@@ -17,11 +17,12 @@ At that point the tool:
 
 1. Reads the staged diff from the repository.
 2. Builds the prompt using the configured YAML template and the staged content.
-3. Checks whether the request is too large for the current model budget.
-4. Optionally compresses or summarizes the diff.
-5. Calls LiteLLM with the final prompt.
-6. Validates the model output and retries on empty responses.
-7. Writes the generated draft into Git's `COMMIT_EDITMSG` file.
+3. Resolves a safe prompt limit from LiteLLM metadata for the configured model.
+4. Optionally compresses the prompt with Headroom.
+5. Estimates the compressed prompt and summarizes an oversized diff when needed.
+6. Calls LiteLLM with the final prompt.
+7. Validates the model output and retries on empty responses.
+8. Writes the generated draft into Git's `COMMIT_EDITMSG` file.
 
 ![Execution flow from staged changes to a generated commit message](../assets/diagrams/commit-flow.png)
 
@@ -36,7 +37,8 @@ and writes the approved text back to Git.
 The key safety checks are:
 
 - no staged changes: exit silently
-- oversized prompt: compress or summarize before sending
+- unknown model metadata: use the conservative 8,192-token context fallback
+- oversized prompt: summarize and measure again before sending
 - empty response: retry within the configured limits
 - no interactive terminal: require `--auto-approve` or fail
 
@@ -60,6 +62,12 @@ LiteLLM provides a common interface for multiple model providers.
 The hook does not care whether the backend is OpenAI, Anthropic, GitHub Copilot,
 or a custom gateway.
 It only needs a model identifier and a working provider configuration.
+
+LiteLLM also provides the model's maximum input size.
+The hook reserves 1,024 tokens for the response
+and uses the remainder as the prompt limit.
+When LiteLLM has no metadata for a model identifier,
+the hook assumes an 8,192-token context window instead of risking a request sized for a much larger model.
 
 That design also keeps provider-specific logic outside the project.
 Custom providers can be registered through the `ai_prepare_commit_msg.litellm_providers` entry point group,

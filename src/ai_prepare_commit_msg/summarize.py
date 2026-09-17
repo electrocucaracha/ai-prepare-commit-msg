@@ -39,12 +39,11 @@ from typing import Any
 
 import litellm
 
+from .token_budget import get_prompt_token_limit
+
 logger = logging.getLogger(__name__)
 
-# Chunks are sized well below the prompt limit so a summarization request
-# (plus its system prompt and reply) stays in budget.
-MAX_PROMPT_TOKENS = 120_000
-CHUNK_TOKENS = MAX_PROMPT_TOKENS // 6
+CHUNK_DIVISOR = 6
 MAX_FILES_PER_CHUNK = 20
 MAX_SKELETON_FILES = 200
 MAX_REDUCE_ROUNDS = 3
@@ -205,13 +204,21 @@ def split_text_by_token_budget(
     current_tokens = 0
 
     for line in lines:
-        line_tokens = count_tokens(model, line)
-        if current and current_tokens + line_tokens > max_chunk_tokens:
-            chunks.append("".join(current))
-            current = []
-            current_tokens = 0
-        current.append(line)
-        current_tokens += line_tokens
+        pending = [line]
+        while pending:
+            part = pending.pop()
+            part_tokens = count_tokens(model, part)
+            if part_tokens > max_chunk_tokens and len(part) > 1:
+                midpoint = len(part) // 2
+                pending.extend((part[midpoint:], part[:midpoint]))
+                continue
+
+            if current and current_tokens + part_tokens > max_chunk_tokens:
+                chunks.append("".join(current))
+                current = []
+                current_tokens = 0
+            current.append(part)
+            current_tokens += part_tokens
 
     if current:
         chunks.append("".join(current))
@@ -305,9 +312,11 @@ def build_skeleton(sections: list[tuple[str, str]]) -> str:
     return "\n".join(stats[:MAX_SKELETON_FILES] + [f"- ... and {hidden} more file(s)"])
 
 
-def _split_oversized_section(model: str, path: str, section: str) -> list[DiffChunk]:
+def _split_oversized_section(
+    model: str, path: str, section: str, chunk_tokens: int
+) -> list[DiffChunk]:
     """Break a single file's diff into part-sized chunks."""
-    parts = split_text_by_token_budget(model, section, CHUNK_TOKENS)
+    parts = split_text_by_token_budget(model, section, chunk_tokens)
     return [
         DiffChunk(
             label=f"{path} (part {index}/{len(parts)})",
@@ -341,14 +350,21 @@ def _pack_chunk(entries: list[tuple[str, str]]) -> DiffChunk:
     )
 
 
-def plan_chunks(model: str, sections: list[tuple[str, str]]) -> list[DiffChunk]:
+def plan_chunks(
+    model: str,
+    sections: list[tuple[str, str]],
+    chunk_tokens: int | None = None,
+) -> list[DiffChunk]:
     """Pack ``(path, section)`` pairs into map-step chunks.
 
     Oversized files are split into parts so no single request is truncated,
-    while files that fit are packed together up to :data:`CHUNK_TOKENS` and
-    :data:`MAX_FILES_PER_CHUNK` so a wide, shallow change set costs few
-    requests. Packing follows diff order, which keeps sibling paths together.
+    while files that fit are packed together up to ``chunk_tokens`` and
+    :data:`MAX_FILES_PER_CHUNK` so a wide, shallow change set costs few requests.
+    Packing follows diff order, which keeps sibling paths together.
     """
+    if chunk_tokens is None:
+        chunk_tokens = max(1, get_prompt_token_limit(model) // CHUNK_DIVISOR)
+
     chunks: list[DiffChunk] = []
     batch: list[tuple[str, str]] = []
     batch_tokens = 0
@@ -364,13 +380,13 @@ def plan_chunks(model: str, sections: list[tuple[str, str]]) -> list[DiffChunk]:
         path = raw_path or "unknown path"
         tokens = count_tokens(model, section)
 
-        if tokens > CHUNK_TOKENS:
+        if tokens > chunk_tokens:
             flush()
-            chunks.extend(_split_oversized_section(model, path, section))
+            chunks.extend(_split_oversized_section(model, path, section, chunk_tokens))
             continue
 
         if batch and (
-            batch_tokens + tokens > CHUNK_TOKENS or len(batch) >= MAX_FILES_PER_CHUNK
+            batch_tokens + tokens > chunk_tokens or len(batch) >= MAX_FILES_PER_CHUNK
         ):
             flush()
 
@@ -457,15 +473,20 @@ def map_chunks(model: str, chunks: list[DiffChunk]) -> list[str]:
     return notes
 
 
-def reduce_summaries(model: str, summaries: list[str]) -> str:
+def reduce_summaries(
+    model: str, summaries: list[str], chunk_tokens: int | None = None
+) -> str:
     """Collapse per-chunk notes until they fit the summarization budget."""
+    if chunk_tokens is None:
+        chunk_tokens = max(1, get_prompt_token_limit(model) // CHUNK_DIVISOR)
+
     text = "\n".join(summaries)
 
     for _ in range(MAX_REDUCE_ROUNDS):
-        if count_tokens(model, text) <= CHUNK_TOKENS:
+        if count_tokens(model, text) <= chunk_tokens:
             break
 
-        groups = split_text_by_token_budget(model, text, CHUNK_TOKENS)
+        groups = split_text_by_token_budget(model, text, chunk_tokens)
         reduced = [
             summary
             for group in groups
@@ -480,7 +501,9 @@ def reduce_summaries(model: str, summaries: list[str]) -> str:
     return text
 
 
-def summarize_diff(model: str, diff_message: str) -> str:
+def summarize_diff(
+    model: str, diff_message: str, prompt_token_limit: int | None = None
+) -> str:
     """Compress an oversized diff into a file-anchored change report.
 
     Every file contributes a deterministic stat line derived from the diff
@@ -488,6 +511,10 @@ def summarize_diff(model: str, diff_message: str) -> str:
     notes are collapsed to fit the budget. Returns the original diff when no
     summary could be produced.
     """
+    if prompt_token_limit is None:
+        prompt_token_limit = get_prompt_token_limit(model)
+    chunk_tokens = max(1, prompt_token_limit // CHUNK_DIVISOR)
+
     sections = [
         (file_path_from_section(section), section)
         for section in split_diff_by_file(diff_message)
@@ -503,13 +530,13 @@ def summarize_diff(model: str, diff_message: str) -> str:
         if not (path and is_low_signal_path(path))
     ]
 
-    chunks = plan_chunks(model, analyzable)
+    chunks = plan_chunks(model, analyzable, chunk_tokens)
     summaries = map_chunks(model, chunks)
     if not summaries:
         logger.warning("Summarization chain produced no output; giving up.")
         return diff_message
 
-    notes = reduce_summaries(model, summaries)
+    notes = reduce_summaries(model, summaries, chunk_tokens)
     logger.debug(
         "Summarized %d file(s) (%d analyzed) in %d chunk(s): %d -> %d chars",
         len(sections),

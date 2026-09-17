@@ -38,6 +38,7 @@ import yaml
 
 from .summarize import extract_choice_content as _extract_choice_content
 from .summarize import summarize_diff as _summarize_diff
+from .token_budget import get_prompt_token_limit as _get_prompt_token_limit
 
 # Third-party compression errors must fall back to the original prompt.
 try:
@@ -49,7 +50,6 @@ logger = logging.getLogger(__name__)
 
 CUSTOM_PROVIDER_ENTRY_POINT_GROUP = "ai_prepare_commit_msg.litellm_providers"
 
-MAX_PROMPT_TOKENS = 120_000
 OVERSIZED_DIFF_WARNING = (
     "Warning: staged diff is too large for AI commit message generation. "
     "Skipping the LLM request. Please write the commit message manually."
@@ -179,7 +179,9 @@ def load_custom_providers() -> None:
 
 
 def _compress_messages(
-    model: str, messages: list[dict[str, str]]
+    model: str,
+    messages: list[dict[str, str]],
+    prompt_token_limit: int | None = None,
 ) -> list[dict[str, str]]:
     """Compress prompt messages with Headroom and record token metrics.
 
@@ -189,13 +191,16 @@ def _compress_messages(
         logger.debug("Headroom is not installed; sending the prompt uncompressed.")
         return list(messages)
 
+    if prompt_token_limit is None:
+        prompt_token_limit = _get_prompt_token_limit(model)
+
     try:
         # Third-party compression errors must fall back to the original prompt.
         # pylint: disable=broad-exception-caught
         result = headroom_compress(
             messages=messages,
             model=model,
-            model_limit=MAX_PROMPT_TOKENS,
+            model_limit=prompt_token_limit,
             # The staged diff is the trailing user message, so Headroom has to be
             # told to compress it instead of protecting it as live conversation.
             compress_user_messages=True,
@@ -278,30 +283,31 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
     loaded: list[dict[str, str]] = _load_prompt_messages(prompt_file)
     logger.debug("Loaded %d prompt messages from %s", len(loaded), prompt_file)
 
+    prompt_token_limit = _get_prompt_token_limit(model)
     loaded.append({"role": "user", "content": diff_message})
-    messages = _compress_messages(model, loaded)
+    messages = _compress_messages(model, loaded, prompt_token_limit)
 
     prompt_tokens = _estimate_prompt_tokens(model, messages)
-    if prompt_tokens is not None and prompt_tokens > MAX_PROMPT_TOKENS:
+    if prompt_tokens is not None and prompt_tokens > prompt_token_limit:
         logger.warning(
             "Estimated prompt token count %d exceeds safe limit %d; "
             "attempting summarization chain.",
             prompt_tokens,
-            MAX_PROMPT_TOKENS,
+            prompt_token_limit,
         )
         loaded[-1] = {
             "role": "user",
-            "content": _summarize_diff(model, diff_message),
+            "content": _summarize_diff(model, diff_message, prompt_token_limit),
         }
-        messages = _compress_messages(model, loaded)
+        messages = _compress_messages(model, loaded, prompt_token_limit)
         prompt_tokens = _estimate_prompt_tokens(model, messages)
 
-    if prompt_tokens is not None and prompt_tokens > MAX_PROMPT_TOKENS:
+    if prompt_tokens is not None and prompt_tokens > prompt_token_limit:
         logger.warning(
             "Skipping LLM call: prompt still %d tokens after summarization, "
             "exceeding safe limit %d.",
             prompt_tokens,
-            MAX_PROMPT_TOKENS,
+            prompt_token_limit,
         )
         return OVERSIZED_DIFF_WARNING
 
@@ -317,7 +323,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
         return response
 
     result = ""
-    timeout = 10  # seconds
+    timeout = 60  # seconds
 
     # Provider errors must produce a safe fallback for this git hook.
     # pylint: disable=broad-exception-caught

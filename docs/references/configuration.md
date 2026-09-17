@@ -96,6 +96,20 @@ Examples include:
 | `github_copilot/claude-sonnet-4.5` | Larger Claude model for more capable code understanding.         |
 | `github_copilot/gpt-4o`            | GPT-4o model available through supported Copilot integrations.   |
 
+### Model token budget
+
+The prompt limit is derived at runtime from LiteLLM model metadata.
+
+| Condition                                     | Maximum input source                | Prompt limit                        |
+| --------------------------------------------- | ----------------------------------- | ----------------------------------- |
+| LiteLLM reports a positive `max_input_tokens` | `litellm.get_model_info(model)`     | Reported maximum minus 1,024 tokens |
+| Model metadata is unavailable or invalid      | 8,192-token context-window fallback | 7,168 tokens                        |
+
+The 1,024-token difference reserves space for the generated commit message.
+The resolved prompt limit is also passed to Headroom
+and determines the map-reduce summarization chunk size.
+There is no separate CLI option or environment variable for this limit.
+
 ## Custom provider entry points
 
 The package discovers additional LiteLLM providers
@@ -112,6 +126,10 @@ and appended to `litellm.custom_provider_map` before the first model call.
 A name already present in that map is not registered again,
 and an entry point that fails to load is logged at `WARNING` level
 without stopping the hook.
+
+Custom provider registration does not automatically add model metadata to LiteLLM.
+If LiteLLM cannot resolve `max_input_tokens` for the custom model ID,
+the hook uses the fallback described in [Model token budget](#model-token-budget).
 
 See [Add a custom LLM provider](../how-to-guides/custom-providers.md)
 for the procedure.

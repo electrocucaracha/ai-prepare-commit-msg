@@ -46,8 +46,27 @@ and plain text.
 
 The project sets `compress_user_messages=True` because the staged diff is a user message.
 It sets `protect_recent=0` so the final diff message is eligible for compression.
-The project also passes the configured model and its `120,000`-token limit,
-which lets Headroom use model-aware token accounting.
+The project asks LiteLLM for the configured model's maximum input size,
+reserves space for the response,
+and passes the resulting prompt limit to Headroom.
+Models that are not present in LiteLLM's metadata use a conservative 8,192-token context-window fallback.
+
+## How the prompt limit is resolved
+
+The hook reads `max_input_tokens` from `litellm.get_model_info()`.
+It does not use LiteLLM's `max_tokens` value,
+because that value can describe the model's output limit rather than its input capacity.
+
+The hook reserves 1,024 tokens for the generated response.
+For example,
+a model with a 128,000-token maximum input size receives a 126,976-token prompt limit.
+An unmapped model uses the 8,192-token fallback
+and therefore receives a 7,168-token prompt limit.
+
+Metadata lookup is a safeguard,
+not a dependency for successful generation.
+If LiteLLM cannot identify the model or returns no positive input limit,
+the fallback keeps compression and summarization available for custom gateways and proxy aliases.
 
 Headroom returns the messages after transformation,
 the token counts before and after compression,
@@ -65,7 +84,7 @@ Headroom performs the optional transformation;
 LiteLLM estimates the resulting prompt;
 the provider generates the commit message only after the size check passes.
 
-If the estimate is still above `MAX_PROMPT_TOKENS`,
+If the estimate is still above the resolved prompt token limit,
 the project replaces the diff with its map-reduce summary.
 It compresses and measures the new prompt again.
 If the prompt remains too large,

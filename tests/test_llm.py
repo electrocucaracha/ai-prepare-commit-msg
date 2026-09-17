@@ -142,10 +142,9 @@ def test_get_commit_msg_skips_oversized_diff_when_summarization_does_not_help(
     monkeypatch.setattr(
         llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
     )
-    monkeypatch.setattr(
-        llm, "_estimate_prompt_tokens", lambda *_args: llm.MAX_PROMPT_TOKENS + 1
-    )
-    monkeypatch.setattr(llm, "_summarize_diff", lambda _model, diff: diff)
+    monkeypatch.setattr(llm, "_get_prompt_token_limit", lambda _model: 7_000)
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 7_001)
+    monkeypatch.setattr(llm, "_summarize_diff", lambda _model, diff, _limit: diff)
 
     def fail_completion(**_kwargs):
         raise AssertionError("litellm.completion should not be called")
@@ -163,15 +162,17 @@ def test_get_commit_msg_uses_summarization_chain_for_oversized_diff(monkeypatch)
         llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
     )
 
-    token_counts = iter([llm.MAX_PROMPT_TOKENS + 1, 42])
+    monkeypatch.setattr(llm, "_get_prompt_token_limit", lambda _model: 7_000)
+    token_counts = iter([7_001, 42])
     monkeypatch.setattr(
         llm, "_estimate_prompt_tokens", lambda *_args: next(token_counts)
     )
 
     summarize_calls: list[str] = []
 
-    def fake_summarize(_model, diff):
+    def fake_summarize(_model, diff, prompt_token_limit):
         summarize_calls.append(diff)
+        assert prompt_token_limit == 7_000
         return "summarized diff"
 
     monkeypatch.setattr(llm, "_summarize_diff", fake_summarize)
@@ -257,7 +258,9 @@ def test_compress_messages_records_savings(monkeypatch):
 
     messages = [{"role": "user", "content": "diff"}]
 
-    assert llm._compress_messages("mymodel", messages) == compressed_result.messages
+    assert (
+        llm._compress_messages("mymodel", messages, 7_000) == compressed_result.messages
+    )
 
     stats = llm.get_compression_stats()
     assert stats.requests == 1

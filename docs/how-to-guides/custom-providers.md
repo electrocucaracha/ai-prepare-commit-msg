@@ -246,6 +246,15 @@ which depends on package installation order.
 If two packages register the same provider name,
 the first one wins.
 
+**Model token budget.**
+Provider registration and model metadata are separate LiteLLM features.
+When LiteLLM recognizes your full model ID,
+the hook uses its reported maximum input size and reserves 1,024 tokens for the response.
+When the model ID is not present in LiteLLM's metadata,
+the hook uses an 8,192-token context-window fallback.
+This fallback produces smaller summarization chunks
+so an unknown custom model does not receive a prompt sized for a large-context model.
+
 ## Troubleshooting
 
 **The hook uses a built-in provider instead of my handler.**
@@ -264,6 +273,12 @@ The warning names the entry point and the underlying error,
 which is usually a missing dependency or an import error in your package.
 Install the missing dependency,
 then run the verification command again.
+
+**Large diffs are summarized more aggressively than my model requires.**
+LiteLLM probably has no `max_input_tokens` metadata for the custom model ID,
+so the hook is using its conservative fallback.
+This behavior does not affect ordinary prompts that already fit;
+it only lowers the threshold for compression and summarization.
 
 ## Related
 

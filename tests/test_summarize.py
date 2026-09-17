@@ -51,6 +51,17 @@ def test_split_text_by_token_budget_splits_oversized_section(monkeypatch):
     assert all(len(chunk) <= 10 for chunk in chunks)
 
 
+def test_split_text_by_token_budget_splits_one_oversized_line(monkeypatch):
+    """A single long line is split instead of exceeding the chunk budget."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: len(text))
+
+    text = "x" * 21 + "\n"
+    chunks = summarize.split_text_by_token_budget("mymodel", text, 10)
+
+    assert "".join(chunks) == text
+    assert all(len(chunk) <= 10 for chunk in chunks)
+
+
 def test_count_tokens_falls_back_to_heuristic_on_failure(monkeypatch):
     """Token counting failures fall back to a character-based heuristic."""
 
@@ -137,28 +148,24 @@ def test_plan_chunks_respects_the_file_count_cap(monkeypatch):
 
 def test_plan_chunks_starts_a_new_chunk_when_the_budget_is_reached(monkeypatch):
     """A file that does not fit the running batch opens the next chunk."""
-    monkeypatch.setattr(
-        summarize, "count_tokens", lambda _model, _text: summarize.CHUNK_TOKENS // 2 + 1
-    )
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 6)
 
     sections = [("a.py", _diff("a.py")), ("b.py", _diff("b.py"))]
-    chunks = summarize.plan_chunks("mymodel", sections)
+    chunks = summarize.plan_chunks("mymodel", sections, chunk_tokens=10)
 
     assert [chunk.paths for chunk in chunks] == [("a.py",), ("b.py",)]
 
 
 def test_plan_chunks_splits_a_file_larger_than_the_budget(monkeypatch):
     """An oversized file becomes labelled parts instead of one huge request."""
-    monkeypatch.setattr(
-        summarize, "count_tokens", lambda _model, _text: summarize.CHUNK_TOKENS + 1
-    )
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 11)
     monkeypatch.setattr(
         summarize,
         "split_text_by_token_budget",
         lambda _model, text, _budget: [text[:1], text[1:]],
     )
 
-    chunks = summarize.plan_chunks("mymodel", [("big.py", "xy")])
+    chunks = summarize.plan_chunks("mymodel", [("big.py", "xy")], chunk_tokens=10)
 
     assert [chunk.label for chunk in chunks] == [
         "big.py (part 1/2)",
@@ -175,14 +182,16 @@ def test_plan_chunks_flushes_the_batch_before_an_oversized_file(monkeypatch):
     monkeypatch.setattr(
         summarize,
         "count_tokens",
-        lambda _model, text: sizes.get(text, summarize.CHUNK_TOKENS + 1),
+        lambda _model, text: sizes.get(text, 11),
     )
     monkeypatch.setattr(
         summarize, "split_text_by_token_budget", lambda _model, text, _budget: [text]
     )
 
     chunks = summarize.plan_chunks(
-        "mymodel", [("small.py", "small.py"), ("big.py", "big body")]
+        "mymodel",
+        [("small.py", "small.py"), ("big.py", "big body")],
+        chunk_tokens=10,
     )
 
     assert [chunk.label for chunk in chunks] == ["small.py", "big.py (part 1/1)"]
@@ -294,7 +303,7 @@ def test_summarize_text_returns_empty_on_failure(monkeypatch):
 
 def test_reduce_summaries_collapses_until_within_budget(monkeypatch):
     """Oversized per-file notes are re-summarized before being returned."""
-    token_counts = iter([summarize.CHUNK_TOKENS + 1, 1])
+    token_counts = iter([11, 1])
     monkeypatch.setattr(summarize, "count_tokens", lambda *_args: next(token_counts))
     monkeypatch.setattr(
         summarize, "split_text_by_token_budget", lambda _model, text, _budget: [text]
@@ -308,7 +317,9 @@ def test_reduce_summaries_collapses_until_within_budget(monkeypatch):
 
     monkeypatch.setattr(summarize, "summarize_text", fake_summarize)
 
-    notes = summarize.reduce_summaries("mymodel", ["- a.py: one", "- b.py: two"])
+    notes = summarize.reduce_summaries(
+        "mymodel", ["- a.py: one", "- b.py: two"], chunk_tokens=10
+    )
 
     assert notes == "reduced"
     assert calls == [summarize.REDUCE_SUMMARY_SYSTEM_PROMPT]
@@ -323,14 +334,15 @@ def test_reduce_summaries_keeps_notes_within_budget(monkeypatch):
 
     monkeypatch.setattr(summarize, "summarize_text", fail)
 
-    assert summarize.reduce_summaries("mymodel", ["- a.py: one"]) == "- a.py: one"
+    assert (
+        summarize.reduce_summaries("mymodel", ["- a.py: one"], chunk_tokens=10)
+        == "- a.py: one"
+    )
 
 
 def test_reduce_summaries_stops_when_reduce_step_produces_nothing(monkeypatch):
     """The reduce loop bails out instead of looping forever on empty output."""
-    monkeypatch.setattr(
-        summarize, "count_tokens", lambda *_args: summarize.CHUNK_TOKENS + 1
-    )
+    monkeypatch.setattr(summarize, "count_tokens", lambda *_args: 11)
     monkeypatch.setattr(
         summarize, "split_text_by_token_budget", lambda _model, text, _budget: [text]
     )
@@ -338,7 +350,9 @@ def test_reduce_summaries_stops_when_reduce_step_produces_nothing(monkeypatch):
 
     summaries = ["- a.py: one", "- b.py: two"]
 
-    assert summarize.reduce_summaries("mymodel", summaries) == "\n".join(summaries)
+    assert summarize.reduce_summaries(
+        "mymodel", summaries, chunk_tokens=10
+    ) == "\n".join(summaries)
 
 
 def test_low_signal_files_are_reported_without_an_llm_call(monkeypatch):
@@ -355,7 +369,9 @@ def test_low_signal_files_are_reported_without_an_llm_call(monkeypatch):
 
     monkeypatch.setattr(summarize, "map_chunks", fake_map)
     monkeypatch.setattr(
-        summarize, "reduce_summaries", lambda _model, notes: "\n".join(notes)
+        summarize,
+        "reduce_summaries",
+        lambda _model, notes, _chunk_tokens: "\n".join(notes),
     )
 
     result = summarize.summarize_diff("mymodel", diff)
