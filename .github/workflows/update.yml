@@ -17,14 +17,6 @@ concurrency:
   group: scheduled-version-updates
   cancel-in-progress: true
 jobs:
-  check-versions:
-    name: Update Managed Version Files
-    permissions:
-      contents: write
-      pull-requests: write
-    uses: electrocucaracha/gh-workflows/.github/workflows/update.yml@ebd64404c7f990deff4739b206561b17d1d4f57f # v9.1.2
-    secrets:
-      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
   check-dockerfile:
     runs-on: ubuntu-latest
     permissions:
