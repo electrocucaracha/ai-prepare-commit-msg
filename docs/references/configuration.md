@@ -24,6 +24,7 @@ CLI values take precedence over values supplied by an environment variable.
 | `LITELLM_PROXY_API_BASE`         | LiteLLM proxy base URL.                                                                                    |
 | `LITELLM_PROXY_API_KEY`          | LiteLLM proxy API key, if required.                                                                        |
 | `LITELLM_EXTRA_HEADERS_JSON`     | Optional JSON object of string request headers passed to LiteLLM.                                          |
+| `LITELLM_REQUEST_TIMEOUT`        | Optional LLM request timeout in seconds. Must be a positive number. Defaults to `60`.                      |
 | `AI_PREPARE_COMMIT_AUTO_APPROVE` | Enable automatic approval, which skips the `[Y/n]` confirmation and writes the generated message directly. |
 
 ### Provider-specific keys

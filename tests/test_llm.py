@@ -135,6 +135,36 @@ def test_get_extra_headers_rejects_malformed_json(monkeypatch):
         llm._get_extra_headers()
 
 
+def test_get_llm_timeout_defaults_when_unset(monkeypatch):
+    """The default timeout is used when the environment variable is unset."""
+    monkeypatch.delenv("LITELLM_REQUEST_TIMEOUT", raising=False)
+
+    assert llm._get_llm_timeout() == llm.DEFAULT_LLM_REQUEST_TIMEOUT
+
+
+def test_get_llm_timeout_reads_environment_variable(monkeypatch):
+    """A custom timeout is read from the environment as a float."""
+    monkeypatch.setenv("LITELLM_REQUEST_TIMEOUT", "12.5")
+
+    assert llm._get_llm_timeout() == 12.5
+
+
+def test_get_llm_timeout_rejects_non_numeric_value(monkeypatch):
+    """A non-numeric timeout value raises a clear error."""
+    monkeypatch.setenv("LITELLM_REQUEST_TIMEOUT", "not-a-number")
+
+    with pytest.raises(ValueError, match="positive number of seconds"):
+        llm._get_llm_timeout()
+
+
+def test_get_llm_timeout_rejects_non_positive_value(monkeypatch):
+    """A zero or negative timeout value raises a clear error."""
+    monkeypatch.setenv("LITELLM_REQUEST_TIMEOUT", "0")
+
+    with pytest.raises(ValueError, match="positive number of seconds"):
+        llm._get_llm_timeout()
+
+
 def test_get_commit_msg_skips_oversized_diff_when_summarization_does_not_help(
     monkeypatch,
 ):

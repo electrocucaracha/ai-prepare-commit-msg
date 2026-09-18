@@ -55,6 +55,8 @@ OVERSIZED_DIFF_WARNING = (
     "Skipping the LLM request. Please write the commit message manually."
 )
 
+DEFAULT_LLM_REQUEST_TIMEOUT = 60  # seconds
+
 
 @dataclass
 class CompressionStats:
@@ -276,11 +278,33 @@ def _get_extra_headers() -> dict[str, str]:
     return headers
 
 
-def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
-    """Generate a commit message using an LLM with a timeout fallback."""
-    load_custom_providers()
+def _get_llm_timeout() -> float:
+    """Load the LLM request timeout in seconds from the environment."""
+    raw_timeout = os.getenv("LITELLM_REQUEST_TIMEOUT", "").strip()
+    if not raw_timeout:
+        return DEFAULT_LLM_REQUEST_TIMEOUT
 
-    loaded: list[dict[str, str]] = _load_prompt_messages(prompt_file)
+    try:
+        timeout = float(raw_timeout)
+    except ValueError as error:
+        raise ValueError(
+            "LITELLM_REQUEST_TIMEOUT must be a positive number of seconds"
+        ) from error
+
+    if timeout <= 0:
+        raise ValueError("LITELLM_REQUEST_TIMEOUT must be a positive number of seconds")
+
+    return timeout
+
+
+def _resolve_messages(
+    model: str, diff_message: str, prompt_file: str
+) -> list[dict[str, str]] | None:
+    """Build the prompt messages, summarizing the diff if it is oversized.
+
+    Returns ``None`` when the diff is still oversized after summarization.
+    """
+    loaded = _load_prompt_messages(prompt_file)
     logger.debug("Loaded %d prompt messages from %s", len(loaded), prompt_file)
 
     prompt_token_limit = _get_prompt_token_limit(model)
@@ -309,6 +333,17 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
             prompt_tokens,
             prompt_token_limit,
         )
+        return None
+
+    return messages
+
+
+def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
+    """Generate a commit message using an LLM with a timeout fallback."""
+    load_custom_providers()
+
+    messages = _resolve_messages(model, diff_message, prompt_file)
+    if messages is None:
         return OVERSIZED_DIFF_WARNING
 
     def call_llm():
@@ -323,7 +358,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
         return response
 
     result = ""
-    timeout = 60  # seconds
+    timeout = _get_llm_timeout()
 
     # Provider errors must produce a safe fallback for this git hook.
     # pylint: disable=broad-exception-caught
@@ -338,7 +373,7 @@ def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
             result = "\n".join(filter(None, (s.strip() for s in contents))).strip()
             logger.debug("Generated commit message length=%d", len(result))
     except concurrent.futures.TimeoutError:
-        logger.error("LLM call timed out after %d seconds", timeout)
+        logger.error("LLM call timed out after %s seconds", timeout)
         result = ""  # Fallback to empty commit message
     except Exception as e:  # noqa: BLE001
         if _has_oversized_prompt_error(e):
