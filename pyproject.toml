@@ -26,9 +26,6 @@ where = ["src"]
 test = [
     "pytest",
 ]
-spell = [
-    "pyspelling",
-]
 fmt = [
     "black",
     "isort",
@@ -56,19 +53,6 @@ commands = [
 [tool.pytest.ini_options]
 testpaths = [ "src", "tests" ]
 addopts = "--doctest-modules"
-
-[tool.tox.env.spell]
-description = "Check spelling in the codebase"
-dependency_groups = [
-    "spell",
-]
-commands = [
-    [
-        "pyspelling",
-        "-c",
-        ".spellcheck.yml",
-    ],
-]
 
 [tool.tox.env.fmt]
 description = "Format the codebase"
