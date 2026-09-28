@@ -11,6 +11,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.0.0] - 2026-09-27
+
+### Removed
+
+- Simplified the CI workflow by eliminating the automated Dockerfile updates and pull requests previously managed by the check-dockerfile job. [f6b25f11](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/f6b25f11f49e7cc73df35479a86e5c730dc48b34)
+
+## [18.1.0] - 2026-09-18
+
+### Added
+
+- Automated version updates are now centralized and streamlined through the introduction of a new check-versions job. [644f4529](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/644f45292a6fa2694648f61f9bbc24c5162064b4)
+
+## [18.0.2] - 2026-09-18
+
+### Changed
+
+- Updated the project dependencies by upgrading the `aiohttp` library version to 3.14.3. [33dbd628](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/33dbd628fe01994defa3690c8e2aa2f971e69966)
+
+## [18.0.1] - 2026-09-18
+
+### Changed
+
+- Automated weekly checks for Dockerfile base image updates are now enabled, simplifying workflow management and reducing duplication. [0fdd0ded](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/0fdd0ded1cf8af390aa59de87e1d169260372cea)
+
+## [18.0.0] - 2026-09-17
+
+### Removed
+
+- Simplified the documentation for GitHub Actions workflows by eliminating all references to the obsolete spell.yml spelling check workflow. [ae673c6c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/ae673c6c25d6798d6fcc97ac8a874533eaeb7351)
+
+## [17.0.1] - 2026-09-17
+
+### Changed
+
+- Updated GitHub workflows and pre-commit hooks to use newer versions of dependencies, enabling improved compatibility with upstream tool releases and bringing bugfixes and new features. [40033867](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/40033867a1c4c0f367febeb5909449d63088402e)
+
+## [17.0.0] - 2026-09-17
+
+### Removed
+
+- Simplified the project's workflow by eliminating the spell checking functionality from CI and development tasks. [c718a9ce](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c718a9ce414a0cfc004384ebfd7e33d416dabd5b)
+
+## [16.12.0] - 2026-09-17
+
+### Added
+
+- Optimized LLM request timeouts with configurable environment variable support, allowing users to adjust the default 60-second timeout to suit their environment's latency or reliability requirements. [8601722c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8601722ccc873f4fee1aa58769fda85ab52af395)
+
+## [16.11.0] - 2026-09-17
+
+### Added
+
+- Enabled the use of three additional words: bddecfa, edce, and edcee, in project word lists and checks. [c4c4016e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c4c4016ea146cce404afac0b6bc1f6aeb43ae284)
+
+## [16.10.0] - 2026-09-17
+
+### Added
+
+- Enabled recognition of 'minified' and 'unmapped' terms in code and content analysis, enhancing the tool's ability to accurately identify and process related content in automated workflows or validation steps. [a492a21f](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/a492a21f2a215f05c2ae6265d71dfc7f09b985d7)
+
 ## [16.9.0] - 2026-09-17
 
 ### Added
