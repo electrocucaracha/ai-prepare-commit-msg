@@ -47,7 +47,7 @@ were very short or empty, while only about 10% were descriptive.
 It also found that descriptive messages were typically 15 to 20 words long
 and that developers preferred automatically generated messages in 62% of large-commit cases
 and 54% of small-commit cases.
-See [On Automatically Generating Commit Messages via Summarization of Source Code Changes](https://doi.org/10.1109/scam.2014.14)
+See [On Automatically Generating Commit Messages via Summarization of Source Code Changes](https://api.crossref.org/works/10.1109/scam.2014.14)
 for the study details.
 
 An IEEE survey also describes software fault localization as tedious,
@@ -55,7 +55,7 @@ time-consuming, and expensive,
 and explains that increasing software scale and complexity make manual issue detection harder.
 This supports treating clear change descriptions as useful diagnostic context,
 without claiming that every incident has the same investigation time.
-See [A Survey on Software Fault Localization](https://doi.org/10.1109/tse.2016.2521368)
+See [A Survey on Software Fault Localization](https://api.crossref.org/works/10.1109/tse.2016.2521368)
 for the research background.
 
 ![Diagram](docs/assets/diagram.png)
