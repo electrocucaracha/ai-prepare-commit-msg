@@ -21,6 +21,8 @@ Headroom compression and map-reduce summarization help it handle large diffs.
 Optionally, a [decision model](docs/how-to-guides/decision-models.md)
 can choose the Conventional Commit type using Jev or Ollaya.
 
+![Diagram](docs/assets/diagram.png)
+
 ## How It Works
 
 When a commit starts, the hook reads the staged diff,
@@ -57,8 +59,6 @@ This supports treating clear change descriptions as useful diagnostic context,
 without claiming that every incident has the same investigation time.
 See [A Survey on Software Fault Localization](https://api.crossref.org/works/10.1109/tse.2016.2521368)
 for the research background.
-
-![Diagram](docs/assets/diagram.png)
 
 ## Key Capabilities
 
