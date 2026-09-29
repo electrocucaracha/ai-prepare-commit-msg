@@ -11,6 +11,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.2.4] - 2026-09-28
+
+### Changed
+
+- Simplified the URL validation logic in the choose_type function to use a clearer expression, has_disallowed_url_parts, for checking disallowed URL parts without introducing any breaking behavior or API changes. [b996cc89](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/b996cc8952d039cac6b95ab45cb5d1b7bba83e39)
+
+## [19.2.3] - 2026-09-28
+
+### Changed
+
+- Simplified the process for users to obtain their TypeSafe API key by directly linking to the relevant section in the TypeSafe documentation. [9a77b880](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/9a77b880117218bdeb1fa140c1b3099c2fc574df)
+
+## [19.2.2] - 2026-09-28
+
+### Changed
+
+- Optimized mypy configuration to prevent false positives during CI runs by enabling typesafe_sdk in the ignore_missing_imports rule. [f5f5469d](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/f5f5469dbbdd442be15a934201562cfe87374613)
+
+## [19.2.1] - 2026-09-28
+
+### Changed
+
+- The readme now uses Crossref API URLs for external links, enabling direct access to article metadata in machine-readable format that may support automated tools or integrations referencing key studies. [411cb6b6](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/411cb6b6b51ceed22f6c4fc2fb93486ca492d292)
+
+## [19.2.0] - 2026-09-28
+
+### Added
+
+- Enabled support for classifying and prepending Conventional Commit types to generated commit messages using a TypeSafe-compatible decision model, with new CLI options and environment variable configuration for decision service integration. [fcfc669e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/fcfc669efea4152adc6c2b4a3efc0e7f34a538e1)
+
+## [19.1.1] - 2026-09-27
+
+### Changed
+
+- Updated several dependencies to their latest versions, including gh-workflows to 9.3.1, ruff-pre-commit to 0.16.9, and uv to 10.2.0. [4aa426b1](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/4aa426b14c0fab052fc0647141f5392527bd1234)
+
+## [19.1.0] - 2026-09-27
+
+### Added
+
+- Optimized project dependencies and workflows to ensure accurate and up-to-date documentation of major and minor changes since version 16.9.0. [de2e1363](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/de2e13639ddb73f78e83bb0bb5d7228b5ff19df9)
+
 ## [19.0.0] - 2026-09-27
 
 ### Removed
