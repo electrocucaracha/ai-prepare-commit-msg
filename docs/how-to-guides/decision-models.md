@@ -18,7 +18,7 @@ LiteLLM chooses the type as usual.
 
 ## Use Jev
 
-1. Create an API key in the [TypeSafe dashboard](https://console.typesafe.ai/keys).
+1. [Get an API key](https://docs.typesafe.ai/introduction/quickstart#call-it-the-api) from the TypeSafe dashboard.
 2. Set the decision URL and your key in the environment where the Git hook runs:
 
    ```bash
