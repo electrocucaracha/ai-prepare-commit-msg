@@ -27,6 +27,32 @@ CLI values take precedence over values supplied by an environment variable.
 | `LITELLM_REQUEST_TIMEOUT`        | Optional LLM request timeout in seconds. Must be a positive number. Defaults to `60`.                      |
 | `AI_PREPARE_COMMIT_AUTO_APPROVE` | Enable automatic approval, which skips the `[Y/n]` confirmation and writes the generated message directly. |
 
+### Decision models
+
+Set `TYPESAFE_BASE_URL` to the base URL of a TypeSafe-compatible
+decision service to choose the Conventional Commit type with a decision model.
+Without this URL, the existing LiteLLM-only flow is unchanged.
+LiteLLM still generates the description and optional body first;
+the decision service receives that text and chooses the type for the title.
+An unavailable service or invalid decision stops the hook without writing a message.
+
+| Variable            | Description                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `TYPESAFE_BASE_URL` | API base URL. Jev: `https://api.typesafe.ai`; Ollaya: `http://127.0.0.1:11435`.    |
+| `TYPESAFE_API_KEY`  | Required for Jev; optional for Ollaya. Sent to the configured URL as a bearer key. |
+| `TYPESAFE_MODEL`    | Optional model override. Defaults to `jev-latest` for Jev or `laya` otherwise.     |
+
+The decision URL is an HTTP(S) base URL without embedded credentials or a query.
+Jev requires HTTPS and a TypeSafe API key.
+The key is sent to whichever decision URL you configure;
+do not point `TYPESAFE_BASE_URL` at an untrusted service while a cloud key is set.
+For a service without authentication, the `typesafe-sdk` client sends `local` as a placeholder bearer key
+because the SDK requires a non-empty key.
+Requests go to `/v1/systemone` with a 15-second per-request timeout;
+the SDK handles retries.
+See [Choose commit types with a decision model](../how-to-guides/decision-models.md)
+for setup instructions.
+
 ### Provider-specific keys
 
 LiteLLM reads provider credentials from these variables
@@ -137,14 +163,16 @@ for the procedure.
 
 ## CLI Options
 
-| Option           | Accepted values / default                                                                             |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `--model`        | LiteLLM model ID. Required unless `LITELLM_PROXY_MODEL` is set.                                       |
-| `--prompt-file`  | YAML prompt file path. Default: `prompts/default.yml`, resolved relative to the installed package.    |
-| `--log-level`    | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default: `WARNING`.                               |
-| `--retry`        | Integer of at least `1`. Maximum attempts when the generated message is empty. Default: `5`.          |
-| `--retry-sleep`  | Non-negative number of seconds between retries. Default: `3.0`.                                       |
-| `--auto-approve` | Boolean flag that skips confirmation. The environment equivalent is `AI_PREPARE_COMMIT_AUTO_APPROVE`. |
+| Option             | Accepted values / default                                                                             |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `--model`          | LiteLLM model ID. Required unless `LITELLM_PROXY_MODEL` is set.                                       |
+| `--prompt-file`    | YAML prompt file path. Default: `prompts/default.yml`, resolved relative to the installed package.    |
+| `--log-level`      | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default: `WARNING`.                               |
+| `--retry`          | Integer of at least `1`. Maximum attempts when the generated message is empty. Default: `5`.          |
+| `--retry-sleep`    | Non-negative number of seconds between retries. Default: `3.0`.                                       |
+| `--auto-approve`   | Boolean flag that skips confirmation. The environment equivalent is `AI_PREPARE_COMMIT_AUTO_APPROVE`. |
+| `--decision-url`   | Decision API base URL. Overrides `TYPESAFE_BASE_URL`.                                                 |
+| `--decision-model` | Decision model name. Overrides `TYPESAFE_MODEL`.                                                      |
 
 The command also accepts positional file arguments.
 They are used to detect pre-commit mode
@@ -187,6 +215,7 @@ export OPENAI_API_KEY="your-openai-api-key"
 ## Related
 
 - [How to install](../how-to-guides/how-to-install.md)
+- [Choose commit types with a decision model](../how-to-guides/decision-models.md)
 - [Add a custom LLM provider](../how-to-guides/custom-providers.md)
 - [How it works](../explanations/how-it-works.md)
 - [Reference index](index.md)

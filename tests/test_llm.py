@@ -106,6 +106,55 @@ def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
     assert seen_kwargs["extra_headers"] == {}
 
 
+def test_get_commit_msg_untyped_instructs_model_after_default_prompt(monkeypatch):
+    """Only decision mode asks for an untyped description."""
+    monkeypatch.setattr(
+        llm,
+        "_load_prompt_messages",
+        lambda _path: [
+            {"role": "system", "content": "header"},
+            {"role": "user", "content": "template"},
+        ],
+    )
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 42)
+    seen = {}
+
+    def fake_completion(**kwargs):
+        seen["messages"] = kwargs["messages"]
+        return _Response([_Choice(_Msg("describe change"))])
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    assert llm.get_commit_msg("model", "diff", "prompt.yml", untyped=True) == (
+        "describe change"
+    )
+    assert seen["messages"][0]["content"] == "header"
+    assert "Do not include a Conventional Commit type" in seen["messages"][1]["content"]
+    assert (
+        "Ensure valid Conventional Commit syntax" not in seen["messages"][1]["content"]
+    )
+    assert seen["messages"][2]["content"] == "template"
+
+    assert llm.get_commit_msg("model", "diff", "prompt.yml") == "describe change"
+    assert "<type>[optional scope][!]: <description>" in seen["messages"][1]["content"]
+    assert "Ensure valid Conventional Commit syntax" in seen["messages"][1]["content"]
+    assert (
+        "Do not include a Conventional Commit type"
+        not in seen["messages"][1]["content"]
+    )
+
+
+def test_default_prompt_leaves_type_selection_to_runtime():
+    """The shared prompt must not contradict the untyped system instruction."""
+    prompt_file = (
+        llm.Path(__file__).parents[1] / "src/ai_prepare_commit_msg/prompts/default.yml"
+    )
+    system_prompt = llm._load_prompt_messages(prompt_file)[0]["content"]
+
+    assert "<type>" not in system_prompt
+    assert "Choose the type" not in system_prompt
+    assert "conventionalcommits.org" not in system_prompt
+
+
 def test_get_extra_headers_reads_json_environment_variable(monkeypatch):
     """Optional request headers are loaded as string values."""
     monkeypatch.setenv(

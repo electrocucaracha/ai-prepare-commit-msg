@@ -22,7 +22,8 @@ At that point the tool:
 5. Estimates the compressed prompt and summarizes an oversized diff when needed.
 6. Calls LiteLLM with the final prompt.
 7. Validates the model output and retries on empty responses.
-8. Writes the generated draft into Git's `COMMIT_EDITMSG` file.
+8. Optionally asks a decision model to choose the Conventional Commit type.
+9. Requests your approval and writes the draft into Git's `COMMIT_EDITMSG` file.
 
 ![Execution flow from staged changes to a generated commit message](../assets/diagrams/commit-flow.png)
 
@@ -46,15 +47,33 @@ This keeps the hook useful in both local developer workflows and scripted automa
 
 ## Prompt construction
 
-The default prompt file declares the output contract.
-It tells the model to produce a Conventional Commits-aligned message,
-with a concise imperative summary and optional body text.
+The default prompt file gives the model shared writing guidance
+for a concise imperative description and optional body.
+The runtime adds a system instruction for the first-line format:
+a Conventional Commit header without a decision URL,
+or an untyped description when a decision URL is set.
+This instruction is included before compression and token-budget checks.
 The runtime code injects the actual staged diff as the user message,
 so policy and content stay separate.
 
 The user prompt is intentionally narrow:
 commit messages are generated from the diff,
 not from whole-project context or unrelated repository metadata.
+
+## Optional type selection
+
+With a decision API URL configured,
+LiteLLM generates a description and optional body without a type prefix.
+The hook sends that text to a TypeSafe-compatible decision service,
+which chooses the Conventional Commit type before the hook presents the message for approval.
+Without a decision URL,
+LiteLLM generates the full message as before.
+
+The official Jev endpoint requires a TypeSafe API key.
+An Ollaya-compatible endpoint accepts an unauthenticated request unless its server requires a key.
+The hook stops without writing a message if the decision request fails or returns an unsupported type.
+See [Choose commit types with a decision model](../how-to-guides/decision-models.md)
+for setup and [Configuration reference](../references/configuration.md) for settings.
 
 ## Why LiteLLM is the boundary
 

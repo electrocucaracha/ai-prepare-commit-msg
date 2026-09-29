@@ -36,7 +36,7 @@ from typing import TextIO
 
 import click
 
-from ai_prepare_commit_msg import git, llm
+from ai_prepare_commit_msg import decision, git, llm
 from ai_prepare_commit_msg.llm import get_commit_msg
 
 logger = logging.getLogger(__name__)
@@ -124,6 +124,16 @@ def _prompt_on_stream(stream: TextIO, commit_msg: str) -> bool:
     envvar="AI_PREPARE_COMMIT_AUTO_APPROVE",
     help="Skip confirmation and write the generated message immediately.",
 )
+@click.option(
+    "--decision-url",
+    envvar="TYPESAFE_BASE_URL",
+    help="Base URL of a TypeSafe-compatible decision API; enables type selection.",
+)
+@click.option(
+    "--decision-model",
+    envvar="TYPESAFE_MODEL",
+    help="Override the decision model (default: jev-latest or laya).",
+)
 @click.argument("files", nargs=-1, type=click.UNPROCESSED)
 # Click injects option values as positional args for this command callback.
 # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -134,6 +144,8 @@ def cli(
     retry: int,
     retry_sleep: float,
     auto_approve: bool,
+    decision_url: str | None,
+    decision_model: str | None,
     files: Sequence[str],
 ) -> None:
     """Generate commit messages using AI assistance.
@@ -145,6 +157,8 @@ def cli(
         retry: Maximum attempts when generated commit message is empty.
         retry_sleep: Seconds to wait between retry attempts.
         auto_approve: Skip interactive confirmation when set.
+        decision_url: Optional Jev or Ollaya decision API base URL.
+        decision_model: Optional model name for the decision service.
         files: Files passed by pre-commit (unused except to detect pre-commit).
     """
     logging.basicConfig(
@@ -171,7 +185,12 @@ def cli(
     prompt_path = Path(__file__).parent / prompt_file
     commit_msg = ""
     for attempt in range(1, retry + 1):
-        commit_msg = get_commit_msg(model, diff_message, str(prompt_path)).strip()
+        if decision_url:
+            commit_msg = get_commit_msg(
+                model, diff_message, str(prompt_path), untyped=True
+            ).strip()
+        else:
+            commit_msg = get_commit_msg(model, diff_message, str(prompt_path)).strip()
         if commit_msg:
             break
 
@@ -188,6 +207,14 @@ def cli(
         raise click.ClickException(
             "Generated commit message is empty after all retry attempts."
         )
+
+    if decision_url and commit_msg != llm.OVERSIZED_DIFF_WARNING:
+        try:
+            commit_msg = decision.add_commit_type(
+                commit_msg, decision_url, decision_model
+            )
+        except (ValueError, RuntimeError) as error:
+            raise click.ClickException(str(error)) from error
 
     logger.debug(
         "Generated commit message (%d chars):\n%s", len(commit_msg), commit_msg

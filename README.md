@@ -12,29 +12,57 @@
 [![Scc Code Badge](https://sloc.xyz/github/electrocucaracha/ai-prepare-commit-msg?category=code)](https://github.com/boyter/scc/)
 [![Scc COCOMO Badge](https://sloc.xyz/github/electrocucaracha/ai-prepare-commit-msg?category=cocomo)](https://github.com/boyter/scc/)
 
-AI-powered Git hook that generates concise,
-high-quality commit messages from your staged changes.
-
-Messages follow the Conventional Commits format
+AI Prepare Commit Message is an AI-powered Git hook that generates concise,
+high-quality commit messages from staged changes.
+It integrates with Git's `prepare-commit-msg` flow
+and uses LiteLLM to produce messages that follow the Conventional Commits format
 and OpenStack commit-message best practices.
+Headroom compression and map-reduce summarization help it handle large diffs.
+Optionally, a [decision model](docs/how-to-guides/decision-models.md)
+can choose the Conventional Commit type using Jev or Ollaya.
 
-The hook integrates with Git's `prepare-commit-msg` flow
-and uses LiteLLM to produce the text.
+## How It Works
+
+When a commit starts, the hook reads the staged diff,
+compresses or summarizes it when necessary,
+and generates a draft commit message.
+It presents that draft before writing it to Git,
+so Git remains in control of the commit
+and the developer remains in control of final approval.
+
+## Why It Helps
+
+Clear commit messages make project history easier to review, search, understand,
+and maintain.
+They also give developers useful diagnostic context when they troubleshoot changes.
+Research does not establish a universal average for the time required to write a
+good commit message:
+the time varies with the size of the change,
+the developer's familiarity with it,
+and the level of detail required.
+The evidence is stronger on message quality and maintenance effort than on elapsed
+writing time.
+For example, an IEEE study of more than 23,000 Java projects found that most commit messages
+were very short or empty, while only about 10% were descriptive.
+It also found that descriptive messages were typically 15 to 20 words long
+and that developers preferred automatically generated messages in 62% of large-commit cases
+and 54% of small-commit cases.
+See [On Automatically Generating Commit Messages via Summarization of Source Code Changes](https://doi.org/10.1109/scam.2014.14)
+for the study details.
+
+An IEEE survey also describes software fault localization as tedious,
+time-consuming, and expensive,
+and explains that increasing software scale and complexity make manual issue detection harder.
+This supports treating clear change descriptions as useful diagnostic context,
+without claiming that every incident has the same investigation time.
+See [A Survey on Software Fault Localization](https://doi.org/10.1109/tse.2016.2521368)
+for the research background.
 
 ![Diagram](docs/assets/diagram.png)
 
-## Reasons to Use AI Prepare Commit Message
+## Key Capabilities
 
-While you can write commit messages manually, AI Prepare Commit Message makes the process faster, more consistent, and easier to integrate into your existing Git workflow.
-
-- **Save time writing commit messages** — Turn staged changes into a useful commit message automatically instead of stopping to summarize the diff yourself.
-- **Write better commit messages** — Analyze the actual changes in your staged diff to produce a meaningful description rather than relying on generic summaries.
-- **Keep commits consistent** — Follow Conventional Commits and project-specific writing conventions through configurable prompts.
-- **Understand large diffs faster** — Let AI identify the important changes in complex diffs and distill them into a concise commit message.
-- **Fit naturally into Git** — Integrate directly with Git's prepare-commit-msg lifecycle without requiring a separate application or command.
-- **Stay in control** — Generated messages are drafts. Review, edit, or replace them before the commit is finalized.
-- **Use different AI providers** — LiteLLM provides a unified interface for different models and providers, allowing you to change models through configuration.
-- **Plug in your own provider** — Register a custom LLM backend, such as a corporate gateway or a self-hosted server, through a Python entry point without modifying this project.
-- **Centralize commit conventions** — Define message structure, tone, and formatting rules in prompts instead of relying on every contributor to remember them.
-- **Reduce cognitive overhead** — Spend less time translating code changes into prose and more time focusing on the work itself.
-  Improve project history — Clear and consistent commit messages make Git history easier to read, search, review, and understand.
+- **Configurable prompts** — Define message structure, tone, and formatting rules for your project.
+- **Multiple AI providers** — Change models and providers through LiteLLM configuration.
+- **Custom providers** — Register a corporate gateway or self-hosted backend through a Python entry point.
+- **Decision models** — Choose the Conventional Commit type with Jev or Ollaya.

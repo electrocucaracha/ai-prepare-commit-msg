@@ -156,6 +156,138 @@ def test_cli_auto_approve_skips_confirmation(monkeypatch):
     assert holder["repo"].written_message == "msg"
 
 
+def test_cli_decision_url_classifies_description_before_writing(monkeypatch):
+    """Decision mode passes untyped text to the service and preserves the body."""
+    holder = _configure_cli_dependencies(monkeypatch)
+    observed = {}
+
+    def generate(_model, _diff, _prompt, *, untyped):
+        observed["untyped"] = untyped
+        return "add configuration lookup\n\nExplain the motivation."
+
+    def classify(description, base_url, model):
+        observed["decision"] = (description, base_url, model)
+        return "feat"
+
+    monkeypatch.setattr(ai_prepare_commit_msg, "get_commit_msg", generate)
+    monkeypatch.setattr(ai_prepare_commit_msg.decision, "choose_type", classify)
+
+    result = CliRunner().invoke(
+        ai_prepare_commit_msg.cli,
+        [
+            "--model",
+            "test-model",
+            "--decision-url",
+            "https://api.typesafe.ai",
+            "--auto-approve",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert observed == {
+        "untyped": True,
+        "decision": (
+            "add configuration lookup\n\nExplain the motivation.",
+            "https://api.typesafe.ai",
+            None,
+        ),
+    }
+    assert holder["repo"].written_message == (
+        "feat: add configuration lookup\n\nExplain the motivation."
+    )
+
+
+def test_cli_decision_url_environment_enables_classification(monkeypatch):
+    """The environment URL alone opts into decisions; no URL keeps the old path."""
+    holder = _configure_cli_dependencies(monkeypatch)
+    monkeypatch.setenv("TYPESAFE_BASE_URL", "http://127.0.0.1:11435")
+    monkeypatch.setenv("TYPESAFE_MODEL", "laya:en")
+    observed = []
+    monkeypatch.setattr(
+        ai_prepare_commit_msg,
+        "get_commit_msg",
+        lambda *_args, **kwargs: "add lookup" if kwargs.get("untyped") else "msg",
+    )
+
+    def classify(_description, _url, decision_model):
+        observed.append(decision_model)
+        return "feat"
+
+    monkeypatch.setattr(ai_prepare_commit_msg.decision, "choose_type", classify)
+
+    result = CliRunner().invoke(
+        ai_prepare_commit_msg.cli, ["--model", "test-model", "--auto-approve"]
+    )
+    assert result.exit_code == 0
+    assert holder["repo"].written_message == "feat: add lookup"
+    assert observed == ["laya:en"]
+
+    monkeypatch.delenv("TYPESAFE_BASE_URL")
+    result = CliRunner().invoke(
+        ai_prepare_commit_msg.cli, ["--model", "test-model", "--auto-approve"]
+    )
+    assert result.exit_code == 0
+    assert holder["repo"].written_message == "msg"
+
+
+def test_cli_decision_failure_does_not_write(monkeypatch):
+    """A failed decision cannot silently produce an untyped commit."""
+    holder = _configure_cli_dependencies(monkeypatch)
+    monkeypatch.setattr(
+        ai_prepare_commit_msg, "get_commit_msg", lambda *_args, **_kwargs: "change"
+    )
+
+    def fail_decision(*_args):
+        raise RuntimeError("decision service unavailable")
+
+    monkeypatch.setattr(ai_prepare_commit_msg.decision, "choose_type", fail_decision)
+    result = CliRunner().invoke(
+        ai_prepare_commit_msg.cli,
+        [
+            "--model",
+            "test-model",
+            "--decision-url",
+            "http://127.0.0.1:11435",
+            "--auto-approve",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "decision service unavailable" in result.output
+    assert holder["repo"].written_message is None
+
+
+def test_cli_replaces_unexpected_generated_type(monkeypatch):
+    """The decision result wins even when the text model adds a type."""
+    holder = _configure_cli_dependencies(monkeypatch)
+    monkeypatch.setattr(
+        ai_prepare_commit_msg,
+        "get_commit_msg",
+        lambda *_args, **_kwargs: "chore(scope): correct invalid input\n\nReason.",
+    )
+    seen = []
+
+    def classify(description, _provider, _model):
+        seen.append(description)
+        return "fix"
+
+    monkeypatch.setattr(ai_prepare_commit_msg.decision, "choose_type", classify)
+    result = CliRunner().invoke(
+        ai_prepare_commit_msg.cli,
+        [
+            "--model",
+            "test-model",
+            "--decision-url",
+            "http://127.0.0.1:11435",
+            "--auto-approve",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert seen == ["correct invalid input\n\nReason."]
+    assert holder["repo"].written_message == "fix: correct invalid input\n\nReason."
+
+
 def test_cli_retries_until_message_generated(monkeypatch):
     """CLI retries empty results and writes the first non-empty message."""
     holder = {}

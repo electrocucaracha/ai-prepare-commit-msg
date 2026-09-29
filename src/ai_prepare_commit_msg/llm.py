@@ -298,7 +298,7 @@ def _get_llm_timeout() -> float:
 
 
 def _resolve_messages(
-    model: str, diff_message: str, prompt_file: str
+    model: str, diff_message: str, prompt_file: str, *, untyped: bool = False
 ) -> list[dict[str, str]] | None:
     """Build the prompt messages, summarizing the diff if it is oversized.
 
@@ -306,6 +306,28 @@ def _resolve_messages(
     """
     loaded = _load_prompt_messages(prompt_file)
     logger.debug("Loaded %d prompt messages from %s", len(loaded), prompt_file)
+
+    if untyped:
+        format_instruction = (
+            "Write the commit description and optional body. Do not include a "
+            "Conventional Commit type, scope, !, or colon prefix on the first line. "
+            "Keep any body and footers."
+        )
+    else:
+        format_instruction = (
+            "Format the first line as a Conventional Commit: "
+            "<type>[optional scope][!]: <description>. Choose the type that "
+            "best describes the primary change from feat, fix, refactor, revert, "
+            "style, docs, test, chore, build, ci, or perf. Use a scope only when "
+            "supported by the diff and ! for breaking changes. Ensure valid "
+            "Conventional Commit syntax and an accurate type and scope. "
+            "See https://www.conventionalcommits.org/en/v1.0.0/."
+        )
+    first_user = next(
+        (index for index, message in enumerate(loaded) if message["role"] != "system"),
+        len(loaded),
+    )
+    loaded.insert(first_user, {"role": "system", "content": format_instruction})
 
     prompt_token_limit = _get_prompt_token_limit(model)
     loaded.append({"role": "user", "content": diff_message})
@@ -338,11 +360,13 @@ def _resolve_messages(
     return messages
 
 
-def get_commit_msg(model: str, diff_message: str, prompt_file: str) -> str:
+def get_commit_msg(
+    model: str, diff_message: str, prompt_file: str, *, untyped: bool = False
+) -> str:
     """Generate a commit message using an LLM with a timeout fallback."""
     load_custom_providers()
 
-    messages = _resolve_messages(model, diff_message, prompt_file)
+    messages = _resolve_messages(model, diff_message, prompt_file, untyped=untyped)
     if messages is None:
         return OVERSIZED_DIFF_WARNING
 

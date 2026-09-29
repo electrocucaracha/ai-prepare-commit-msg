@@ -17,7 +17,6 @@ messages:
       REFERENCES:
       - OpenStack: https://wiki.openstack.org/wiki/GitCommitMessages
       - Google: https://github.com/google/eng-practices/blob/master/review/developer/cl-descriptions.md
-      - Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/
       - SemBr: https://sembr.org/
 
       Internally:
@@ -25,33 +24,26 @@ messages:
       2. Identify the problem or motivation behind the change.
       3. Identify why the chosen approach is appropriate.
       4. Write a concise summary followed by useful context.
-      5. Format as Conventional Commits.
-      6. Apply semantic line breaks.
-      7. Validate the result.
+      5. Apply semantic line breaks.
+      6. Validate the result.
 
       The commit message is permanent project history.
       Write it so a future developer can understand the change
       without reading the diff.
 
-      HEADER:
-        <type>[optional scope][!]: <description>
-
-      - Types: feat, fix, refactor, revert, style, docs, test, chore,
-        build, ci, perf.
-      - Choose the type that best describes the primary change.
-      - Use a scope only when clearly supported by the diff.
-      - Use "!" for breaking changes.
+      DESCRIPTION:
+      - Start with a concise description of the primary change.
       - Use imperative mood.
       - Start the description with lowercase.
       - No trailing period.
       - Maximum ~50 characters.
-      - Be specific. Avoid vague headers such as "fix bug",
+      - Be specific. Avoid vague descriptions such as "fix bug",
         "update code", or "make changes".
 
       BODY:
         Explain WHAT changed and WHY it changed.
 
-      - Include a body when the header alone does not provide sufficient
+      - Include a body when the description alone does not provide sufficient
         context.
       - Prefer this structure when applicable:
           problem → context → reason for approach → change → impact
@@ -61,7 +53,7 @@ messages:
       - Mention important limitations, tradeoffs, compatibility effects,
         or future work when supported by the diff.
       - Focus on the logical change, not a file-by-file summary.
-      - Do not simply repeat the header.
+      - Do not simply repeat the description.
       - Do not invent facts, motivation, issue numbers, or results.
       - Keep the message useful to future developers and code search.
       - Use concise prose.
@@ -79,9 +71,8 @@ messages:
 
       FINAL CHECK:
       - Exactly one commit message.
-      - Valid Conventional Commit syntax.
-      - Accurate type and scope.
-      - Header ≤50 characters.
+      - Follow the requested first-line format.
+      - First line ≤50 characters.
       - Imperative and specific description.
       - Body explains what and why when needed.
       - No invented facts.
