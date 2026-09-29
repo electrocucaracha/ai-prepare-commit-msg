@@ -60,14 +60,16 @@ def choose_type(description: str, base_url: str, model: str | None = None) -> st
         RuntimeError: When the service cannot answer the decision.
     """
     parsed_url = urlsplit(base_url)
-    if (
-        parsed_url.scheme not in {"http", "https"}
-        or not parsed_url.hostname
-        or parsed_url.username
-        or parsed_url.password
-        or parsed_url.query
-        or parsed_url.fragment
-    ):
+    has_disallowed_url_parts = any(
+        (
+            not parsed_url.hostname,
+            parsed_url.username,
+            parsed_url.password,
+            parsed_url.query,
+            parsed_url.fragment,
+        )
+    )
+    if parsed_url.scheme not in {"http", "https"} or has_disallowed_url_parts:
         raise ValueError(
             "Decision URL must be an HTTP(S) base URL without credentials or query"
         )
@@ -90,7 +92,10 @@ def choose_type(description: str, base_url: str, model: str | None = None) -> st
                 state=description,
                 questions={
                     "commit_type": Choice(
-                        instructions="Which Conventional Commit type best describes the primary change?",
+                        instructions=(
+                            "Which Conventional Commit type best describes "
+                            "the primary change?"
+                        ),
                         criteria=TYPES,
                     )
                 },

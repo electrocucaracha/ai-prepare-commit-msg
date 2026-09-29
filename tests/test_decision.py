@@ -56,6 +56,8 @@ def test_choose_type_uses_compatible_choice_api(monkeypatch, base_url, expected_
     observed = {}
 
     class FakeClient:
+        """Capture client calls without contacting the decision service."""
+
         def __init__(self, **kwargs):
             observed["options"] = kwargs
 
@@ -66,6 +68,7 @@ def test_choose_type_uses_compatible_choice_api(monkeypatch, base_url, expected_
             return None
 
         def system_one(self, *, state, questions):
+            """Capture the decision request and return a supported choice."""
             observed["state"] = state
             observed["question"] = questions["commit_type"]
             return SimpleNamespace(
@@ -96,6 +99,8 @@ def test_choose_type_rejects_unknown_answer(monkeypatch):
     """Reject unsupported types rather than writing malformed commits."""
 
     class FakeClient:
+        """Return an unsupported answer without contacting the service."""
+
         def __init__(self, **_kwargs):
             pass
 
@@ -106,6 +111,7 @@ def test_choose_type_rejects_unknown_answer(monkeypatch):
             return None
 
         def system_one(self, **_kwargs):
+            """Return an answer that should be rejected by the client."""
             return SimpleNamespace(
                 choices={"commit_type": SimpleNamespace(choice="unknown")}
             )
@@ -121,6 +127,8 @@ def test_choose_type_does_not_require_key_for_local_service(monkeypatch):
     observed = {}
 
     class FakeClient:
+        """Capture local-client options without contacting the service."""
+
         def __init__(self, **kwargs):
             observed.update(kwargs)
 
@@ -131,6 +139,7 @@ def test_choose_type_does_not_require_key_for_local_service(monkeypatch):
             return None
 
         def system_one(self, **_kwargs):
+            """Return a supported documentation choice."""
             return SimpleNamespace(
                 choices={"commit_type": SimpleNamespace(choice="docs")}
             )
