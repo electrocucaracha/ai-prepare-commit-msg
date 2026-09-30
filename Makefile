@@ -44,6 +44,15 @@ fmt: cleanup
 	command -v uvx > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uvx tox -e fmt
 
-.PHONY: test
+.PHONY: test coverage mutation bdd
 test:
 	uvx tox -e test
+
+coverage:
+	uvx tox -e coverage
+
+mutation:
+	uvx tox -e mutation
+
+bdd:
+	uvx tox -e bdd

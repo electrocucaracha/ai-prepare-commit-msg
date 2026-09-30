@@ -154,3 +154,44 @@ def test_choose_type_rejects_insecure_jev_url(monkeypatch):
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
     with pytest.raises(ValueError, match="HTTPS"):
         decision.choose_type("description", "http://api.typesafe.ai")
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "ftp://127.0.0.1:11435",
+        "http://user@127.0.0.1:11435",
+        "http://127.0.0.1:11435?debug=true",
+        "http://127.0.0.1:11435#fragment",
+    ],
+)
+def test_choose_type_rejects_non_base_urls(base_url):
+    """Decision requests accept only credential-free HTTP(S) base URLs."""
+    with pytest.raises(ValueError, match=r"HTTP\(S\) base URL"):
+        decision.choose_type("description", base_url)
+
+
+@pytest.mark.parametrize(
+    "failure", [KeyError("commit_type"), decision.TypeSafeError("failed")]
+)
+def test_choose_type_wraps_service_failures(monkeypatch, failure):
+    """SDK failures are exposed as one stable runtime error type."""
+
+    class FailingClient:
+        """Raise a selected SDK failure from the decision request."""
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def system_one(self, **_kwargs):
+            raise failure
+
+    monkeypatch.setattr(decision, "TypeSafeClient", FailingClient)
+    with pytest.raises(RuntimeError, match="Decision request failed"):
+        decision.choose_type("description", "http://127.0.0.1:11435")

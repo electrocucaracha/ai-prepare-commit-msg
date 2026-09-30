@@ -3,3 +3,4 @@
 dictionary.dic
 node_modules/
 package*.json
+.wibey-test/

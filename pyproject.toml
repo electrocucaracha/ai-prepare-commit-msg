@@ -25,7 +25,12 @@ where = ["src"]
 
 [dependency-groups]
 test = [
+    "behave",
     "pytest",
+]
+quality = [
+    "mutmut",
+    "pytest-cov",
 ]
 fmt = [
     "black",
@@ -51,9 +56,57 @@ commands = [
     ],
 ]
 
+[tool.tox.env.coverage]
+description = "Run unit tests with coverage"
+dependency_groups = [
+    "test",
+    "quality",
+]
+commands = [
+    [
+        "pytest",
+        "--cov=ai_prepare_commit_msg",
+        "--cov-report=term-missing",
+        "{posargs}",
+    ],
+]
+
+[tool.tox.env.mutation]
+description = "Run mutation tests"
+dependency_groups = [
+    "test",
+    "quality",
+]
+allowlist_externals = [
+    "python",
+]
+commands = [
+    [
+        "mutmut",
+        "run",
+        "{posargs}",
+    ],
+]
+
+[tool.tox.env.bdd]
+description = "Run Behave BDD scenarios"
+dependency_groups = [
+    "test",
+]
+commands = [
+    [
+        "behave",
+        "{posargs:features}",
+    ],
+]
+
 [tool.pytest.ini_options]
-testpaths = [ "src", "tests" ]
-addopts = "--doctest-modules"
+testpaths = [ "tests" ]
+
+[tool.mutmut]
+source_paths = [ "src/ai_prepare_commit_msg" ]
+pytest_add_cli_args_test_selection = [ "tests" ]
+on_dependency_change = "rerun"
 
 [tool.tox.env.fmt]
 description = "Format the codebase"

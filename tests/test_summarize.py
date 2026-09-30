@@ -79,6 +79,7 @@ def test_file_path_and_change_stat_are_derived_from_headers():
     renamed = "diff --git a/old.py b/moved.py\nrename from old.py\nrename to moved.py\n"
 
     assert summarize.file_path_from_section(added) == "src/new.py"
+    assert summarize.file_path_from_section("preamble only") == ""
     assert (
         summarize.file_change_stat("src/new.py", added) == "- src/new.py (added, +1/-0)"
     )
@@ -338,6 +339,20 @@ def test_reduce_summaries_keeps_notes_within_budget(monkeypatch):
         summarize.reduce_summaries("mymodel", ["- a.py: one"], chunk_tokens=10)
         == "- a.py: one"
     )
+
+
+def test_reduce_summaries_uses_model_budget_when_unspecified(monkeypatch):
+    """An omitted chunk budget is resolved from the model metadata."""
+    monkeypatch.setattr(summarize, "get_prompt_token_limit", lambda _model: 60)
+    observed = []
+    monkeypatch.setattr(
+        summarize,
+        "count_tokens",
+        lambda _model, text: observed.append(text) or 1,
+    )
+
+    assert summarize.reduce_summaries("mymodel", ["- a.py: one"]) == "- a.py: one"
+    assert observed == ["- a.py: one"]
 
 
 def test_reduce_summaries_stops_when_reduce_step_produces_nothing(monkeypatch):
