@@ -190,6 +190,7 @@ def test_choose_type_wraps_service_failures(monkeypatch, failure):
             return None
 
         def system_one(self, **_kwargs):
+            """Raise the injected SDK failure from the decision request."""
             raise failure
 
     monkeypatch.setattr(decision, "TypeSafeClient", FailingClient)
