@@ -11,6 +11,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.8.1] - 2026-09-30
+
+### Changed
+
+- Consistent terminology has been enforced throughout project documentation by standardizing the pull request template's checklist option for bugfixes to use 'Bugfix'. [d5f9e8bb](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/d5f9e8bbbd8029897569db0b3dc088fe4d1c8e40)
+
+## [19.8.0] - 2026-09-30
+
+### Added
+
+- Standardized community contributions and streamlined project maintenance are enabled by the introduction of GitHub issue and pull request templates that guide contributors through bug reports and feature requests. [4d471cbe](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/4d471cbe0d6922e0fc50d82023aa60740f3bd95f)
+
+## [19.7.0] - 2026-09-30
+
+### Added
+
+- Clarified the terms under which the code is distributed and used by introducing the standard Apache License, Version 2.0, which grants permission to reproduce, distribute, and modify the code while requiring attribution notices in derivative works. [5cc1edf5](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/5cc1edf51aecaec044597ace8af06ffbec9954ff)
+
+## [19.6.0] - 2026-09-30
+
+### Added
+
+- Enabled a contributing guide to help new contributors get started and clarify project contribution expectations by outlining development environment setup, testing procedures, commit policies, and pull request guidelines. [e0459af5](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e0459af528ba305fcd944a9bad5a50588e970509)
+
+## [19.5.0] - 2026-09-30
+
+### Added
+
+- Enabled local large language model support by introducing the ollama feature and exposing its port, along with relevant environment variables and updated image and feature versions for improved compatibility. [e87f73d0](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e87f73d0674d465966bbc67a742f0af472728dc7)
+
+## [19.4.3] - 2026-09-29
+
+### Changed
+
+- Upgraded GitHub Actions workflows to leverage the latest improvements in version 9.3.6 of the electrocucaracha/gh-workflows repository, and the isort pre-commit hook was updated to version 9.0.2 to include the latest enhancements. [ee058a7a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/ee058a7a01afe5941eeb522ae7458b2f816118e2)
+
+## [19.4.2] - 2026-09-29
+
+### Changed
+
+- Enabled the mypy configuration to ignore missing imports for behave modules, resolving type checking failures in CI and dev environments where behave is not installed. [1add960e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/1add960ef6158ae0a0cceda423237c12b77e7d57)
+
+## [19.4.1] - 2026-09-29
+
+### Changed
+
+- Enabled comprehensive testing capabilities by introducing 'behave' and 'mutmut' for mutation and coverage testing, and updating the Makefile and pyproject.toml to include new targets for pytest and mutmut. [097664e2](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/097664e2090f84faf1445afd2f47ca7bc6b83627)
+
+## [19.4.0] - 2026-09-29
+
+### Added
+
+- Enabled robust testing of the commit message generation CLI behavior with the introduction of a comprehensive feature suite using Behave, covering key scenarios and user flows without introducing any breaking behavior or API changes. [c654ae53](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c654ae5330396e7085a5cbec000e1edcaa398a1a)
+
+## [19.3.1] - 2026-09-29
+
+### Changed
+
+- Improved the onboarding experience by relocating the architecture diagram to the feature overview section, making architectural context more readily available to new users. [7bc2260b](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/7bc2260b468c992a64068ad8a06cb02ebc2ac399)
+
+## [19.3.0] - 2026-09-28
+
+### Added
+
+- Updated release notes for versions 19.1.0 through 19.2.4 to document recent changes including simplified URL validation, enhanced API key instructions, mypy configuration improvements, new decision service support for commit typing, and dependency updates with no breaking behavior or API changes introduced. [0e28b9a6](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/0e28b9a65ef07c869234a9f69ab8af3f3537dddf)
+
 ## [19.2.4] - 2026-09-28
 
 ### Changed
