@@ -8,7 +8,7 @@ Fixes #
 
 ## Type of change
 
-- [ ] Bug fix
+- [ ] Bugfix
 - [ ] New feature
 - [ ] Documentation
 - [ ] Refactoring or maintenance
