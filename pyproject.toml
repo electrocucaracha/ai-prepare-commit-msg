@@ -84,7 +84,6 @@ commands = [
     [
         "mutmut",
         "run",
-        "{posargs}",
     ],
 ]
 

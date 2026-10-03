@@ -5,7 +5,7 @@ This directory contains the GitHub Actions workflows currently used by this repo
 ## Quick context
 
 - `CI:` [linter.yml](./linter.yml) validates the repository on pushes and pull requests with repository linting, broken-link checks, and AI-assisted failure analysis when validation fails.
-- `CI:` [on-demand_ci.yml](./on-demand_ci.yml) runs the Python unit test suite for branch validation and manual execution.
+- `CI:` [on-demand_ci.yml](./on-demand_ci.yml) runs unit, coverage, mutation, and BDD test environments for branch validation and manual execution.
 - `Maintenance:` [update.yml](./update.yml) refreshes managed version files and opens a pull request with the resulting updates.
 - `Release:` [release.yml](./release.yml) delegates to the shared release workflow to generate changelog metadata and publish a GitHub release.
 
@@ -32,7 +32,7 @@ flowchart TD
 | Workflow file                          | Purpose                                                                                                                                                              | Trigger                                     |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | [linter.yml](./linter.yml)             | Runs repository linting and static analysis checks with `super-linter`, verifies documentation links, and uses AI-assisted diagnosis to explain validation failures. | `push`, `pull_request`                      |
-| [on-demand_ci.yml](./on-demand_ci.yml) | Executes the Python unit test suite for the project and validates the default branch policy during pushes and pull requests.                                         | `workflow_dispatch`, `push`, `pull_request` |
+| [on-demand_ci.yml](./on-demand_ci.yml) | Executes the unit, coverage, mutation, and BDD test environments and validates the default branch policy during pushes and pull requests.                            | `workflow_dispatch`, `push`, `pull_request` |
 | [update.yml](./update.yml)             | Maintenance workflow that refreshes managed version files and opens a pull request with the update set.                                                              | `schedule`, `workflow_dispatch`             |
 | [release.yml](./release.yml)           | Publishes the project release process by reusing the shared GitHub workflow for changelog generation and release creation.                                           | `workflow_dispatch`                         |
 

@@ -38,4 +38,4 @@ jobs:
         with:
           python-version-file: "pyproject.toml"
       - name: Run tests
-        run: uvx tox -e test
+        run: uvx tox -p auto -e test,coverage,mutation,bdd
