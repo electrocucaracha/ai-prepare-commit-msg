@@ -52,7 +52,7 @@ dependency_groups = [
 commands = [
     [
         "pytest",
-        "{posargs}"
+        "{posargs:tests}"
     ],
 ]
 
@@ -67,7 +67,7 @@ commands = [
         "pytest",
         "--cov=ai_prepare_commit_msg",
         "--cov-report=term-missing",
-        "{posargs}",
+        "{posargs:tests}",
     ],
 ]
 

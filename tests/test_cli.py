@@ -443,20 +443,24 @@ def test_prompt_on_stream_accepts_default_yes_on_enter():
     stream = _FakeInteractiveStream("\n")
 
     assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is True
+    assert stream.getvalue() == (
+        "\nGenerated commit message:\n\ncommit body\n\n"
+        "Use this generated commit message? [Y/n]: "
+    )
 
 
 def test_prompt_on_stream_accepts_explicit_yes():
     """An explicit 'y' response accepts the generated message."""
-    stream = _FakeInteractiveStream("y\n")
-
-    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is True
+    for response in ("y\n", "Y\n", "yes\n", " YES \n"):
+        stream = _FakeInteractiveStream(response)
+        assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is True
 
 
 def test_prompt_on_stream_rejects_explicit_no():
     """An explicit 'n' response rejects the generated message."""
-    stream = _FakeInteractiveStream("n\n")
-
-    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is False
+    for response in ("n\n", "N\n", "no\n", " NO \n"):
+        stream = _FakeInteractiveStream(response)
+        assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is False
 
 
 def test_prompt_on_stream_returns_false_on_eof():
@@ -472,8 +476,12 @@ def test_prompt_on_stream_reprompts_on_invalid_input_then_accepts():
 
     assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is True
     output = stream.getvalue()
-    assert "Please answer 'y' or 'n'." in output
-    assert "commit body" in output
+    assert output == (
+        "\nGenerated commit message:\n\ncommit body\n\n"
+        "Use this generated commit message? [Y/n]: "
+        "Please answer 'y' or 'n'.\n"
+        "Use this generated commit message? [Y/n]: "
+    )
 
 
 def test_confirm_generated_message_reads_from_tty(monkeypatch):
@@ -489,7 +497,10 @@ def test_confirm_generated_message_reads_from_tty(monkeypatch):
         def __exit__(self, *_exc_info):
             return False
 
-    def fake_open(self, *_args, **_kwargs):  # pylint: disable=unused-argument
+    def fake_open(self, *args, **kwargs):
+        assert self == ai_prepare_commit_msg.Path("/dev/tty")
+        assert args == ("r+",)
+        assert kwargs == {"encoding": "utf-8"}
         return _FakeTtyContext()
 
     monkeypatch.setattr(ai_prepare_commit_msg.Path, "open", fake_open)
@@ -497,7 +508,7 @@ def test_confirm_generated_message_reads_from_tty(monkeypatch):
     assert ai_prepare_commit_msg._confirm_generated_message("commit body") is True
 
 
-def test_confirm_generated_message_returns_false_without_tty(monkeypatch):
+def test_confirm_generated_message_returns_false_without_tty(monkeypatch, caplog):
     """Missing an interactive TTY refuses auto-approval instead of raising."""
 
     def fake_open(self, *_args, **_kwargs):  # pylint: disable=unused-argument
@@ -505,4 +516,9 @@ def test_confirm_generated_message_returns_false_without_tty(monkeypatch):
 
     monkeypatch.setattr(ai_prepare_commit_msg.Path, "open", fake_open)
 
-    assert ai_prepare_commit_msg._confirm_generated_message("commit body") is False
+    with caplog.at_level("ERROR", logger=ai_prepare_commit_msg.__name__):
+        assert ai_prepare_commit_msg._confirm_generated_message("commit body") is False
+    assert (
+        "No interactive TTY available; refusing to auto-approve commit message."
+        in caplog.text
+    )

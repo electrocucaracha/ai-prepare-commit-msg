@@ -33,8 +33,9 @@ def test_add_commit_type_rejects_empty_description(monkeypatch):
         "choose_type",
         lambda *_args: pytest.fail("Decision should not be requested"),
     )
-    with pytest.raises(ValueError, match="Generated commit description is empty"):
+    with pytest.raises(ValueError) as error:
         decision.add_commit_type("chore: ", "http://127.0.0.1:11435")
+    assert str(error.value) == "Generated commit description is empty."
 
 
 @pytest.mark.parametrize(
@@ -85,18 +86,35 @@ def test_choose_type_uses_compatible_choice_api(monkeypatch, base_url, expected_
     }
     assert observed["state"] == "correct invalid input"
     assert isinstance(observed["question"], decision.Choice)
-    assert "fix" in observed["question"].criteria
+    assert observed["question"].instructions == (
+        "Which Conventional Commit type best describes the primary change?"
+    )
+    assert set(observed["question"].criteria) == {
+        "feat",
+        "fix",
+        "refactor",
+        "revert",
+        "style",
+        "docs",
+        "test",
+        "chore",
+        "build",
+        "ci",
+        "perf",
+    }
 
 
 def test_choose_type_requires_jev_key(monkeypatch):
     """Do not send an unauthenticated request to Jev."""
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="TYPESAFE_API_KEY"):
+    with pytest.raises(ValueError) as error:
         decision.choose_type("description", "https://api.typesafe.ai")
+    assert str(error.value) == "TYPESAFE_API_KEY is required for Jev decisions"
 
 
-def test_choose_type_rejects_unknown_answer(monkeypatch):
-    """Reject unsupported types rather than writing malformed commits."""
+@pytest.mark.parametrize("answer", ["unknown", None, 1])
+def test_choose_type_rejects_unknown_answer(monkeypatch, answer):
+    """Reject unsupported or non-string types rather than writing malformed commits."""
 
     class FakeClient:
         """Return an unsupported answer without contacting the service."""
@@ -113,12 +131,15 @@ def test_choose_type_rejects_unknown_answer(monkeypatch):
         def system_one(self, **_kwargs):
             """Return an answer that should be rejected by the client."""
             return SimpleNamespace(
-                choices={"commit_type": SimpleNamespace(choice="unknown")}
+                choices={"commit_type": SimpleNamespace(choice=answer)}
             )
 
     monkeypatch.setattr(decision, "TypeSafeClient", FakeClient)
-    with pytest.raises(ValueError, match="unsupported commit type"):
+    with pytest.raises(ValueError) as error:
         decision.choose_type("description", "http://127.0.0.1:11435")
+    assert str(error.value) == (
+        f"Decision service returned an unsupported commit type: {answer!r}"
+    )
 
 
 def test_choose_type_does_not_require_key_for_local_service(monkeypatch):
@@ -149,10 +170,39 @@ def test_choose_type_does_not_require_key_for_local_service(monkeypatch):
     assert observed["api_key"] == "local"
 
 
+def test_choose_type_removes_only_trailing_slashes_from_base_url(monkeypatch):
+    """Client normalization preserves legitimate trailing path characters."""
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    observed = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            observed.update(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def system_one(self, **_kwargs):
+            return SimpleNamespace(
+                choices={"commit_type": SimpleNamespace(choice="docs")}
+            )
+
+    monkeypatch.setattr(decision, "TypeSafeClient", FakeClient)
+
+    assert (
+        decision.choose_type("update docs", "http://127.0.0.1:11435/apiX///", model="")
+        == "docs"
+    )
+    assert observed["base_url"] == "http://127.0.0.1:11435/apiX"
+
+
 def test_choose_type_rejects_insecure_jev_url(monkeypatch):
     """Never send a Jev API key over plain HTTP."""
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
-    with pytest.raises(ValueError, match="HTTPS"):
+    with pytest.raises(ValueError, match="^Jev decision URL must use HTTPS$"):
         decision.choose_type("description", "http://api.typesafe.ai")
 
 
@@ -161,13 +211,17 @@ def test_choose_type_rejects_insecure_jev_url(monkeypatch):
     [
         "ftp://127.0.0.1:11435",
         "http://user@127.0.0.1:11435",
+        "http://:secret@127.0.0.1:11435",
         "http://127.0.0.1:11435?debug=true",
         "http://127.0.0.1:11435#fragment",
     ],
 )
 def test_choose_type_rejects_non_base_urls(base_url):
     """Decision requests accept only credential-free HTTP(S) base URLs."""
-    with pytest.raises(ValueError, match=r"HTTP\(S\) base URL"):
+    with pytest.raises(
+        ValueError,
+        match=r"^Decision URL must be an HTTP\(S\) base URL without credentials or query$",
+    ):
         decision.choose_type("description", base_url)
 
 
@@ -194,5 +248,6 @@ def test_choose_type_wraps_service_failures(monkeypatch, failure):
             raise failure
 
     monkeypatch.setattr(decision, "TypeSafeClient", FailingClient)
-    with pytest.raises(RuntimeError, match="Decision request failed"):
+    with pytest.raises(RuntimeError) as error:
         decision.choose_type("description", "http://127.0.0.1:11435")
+    assert str(error.value) == f"Decision request failed: {failure}"

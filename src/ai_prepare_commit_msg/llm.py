@@ -28,6 +28,7 @@ shrink the diff before falling back to ``OVERSIZED_DIFF_WARNING``.
 import concurrent.futures
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass
 from importlib.metadata import entry_points
@@ -291,7 +292,7 @@ def _get_llm_timeout() -> float:
             "LITELLM_REQUEST_TIMEOUT must be a positive number of seconds"
         ) from error
 
-    if timeout <= 0:
+    if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("LITELLM_REQUEST_TIMEOUT must be a positive number of seconds")
 
     return timeout

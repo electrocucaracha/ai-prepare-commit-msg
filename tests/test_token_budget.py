@@ -15,18 +15,27 @@
 
 """Tests for model-aware prompt token budgets."""
 
+import pytest
+
 from ai_prepare_commit_msg import token_budget
 
 
 def test_get_prompt_token_limit_uses_litellm_model_metadata(monkeypatch):
     """Known models use their reported input limit minus response headroom."""
+    observed = []
+
+    def get_model_info(**kwargs):
+        observed.append(kwargs)
+        return {"max_input_tokens": 16_384}
+
     monkeypatch.setattr(
         token_budget.litellm,
         "get_model_info",
-        lambda **_kwargs: {"max_input_tokens": 16_384},
+        get_model_info,
     )
 
     assert token_budget.get_prompt_token_limit("known-model") == 15_360
+    assert observed == [{"model": "known-model"}]
 
 
 def test_get_prompt_token_limit_uses_conservative_fallback(monkeypatch):
@@ -38,3 +47,29 @@ def test_get_prompt_token_limit_uses_conservative_fallback(monkeypatch):
     monkeypatch.setattr(token_budget.litellm, "get_model_info", fail)
 
     assert token_budget.get_prompt_token_limit("custom/model") == 7_168
+
+
+@pytest.mark.parametrize(
+    "reported_limit",
+    [None, True, False, 0, -1, 16.0, "16384"],
+)
+def test_get_prompt_token_limit_ignores_invalid_metadata(monkeypatch, reported_limit):
+    """Invalid metadata types and non-positive values use the fallback budget."""
+    monkeypatch.setattr(
+        token_budget.litellm,
+        "get_model_info",
+        lambda **_kwargs: {"max_input_tokens": reported_limit},
+    )
+
+    assert token_budget.get_prompt_token_limit("custom/model") == 7_168
+
+
+def test_get_prompt_token_limit_keeps_at_least_one_input_token(monkeypatch):
+    """A context smaller than the response reserve still allows one input token."""
+    monkeypatch.setattr(
+        token_budget.litellm,
+        "get_model_info",
+        lambda **_kwargs: {"max_input_tokens": 1_024},
+    )
+
+    assert token_budget.get_prompt_token_limit("small-model") == 1
