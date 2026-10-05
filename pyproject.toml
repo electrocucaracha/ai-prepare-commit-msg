@@ -67,6 +67,7 @@ commands = [
         "pytest",
         "--cov=ai_prepare_commit_msg",
         "--cov-report=term-missing",
+        "--cov-fail-under=80",
         "{posargs:tests}",
     ],
 ]
@@ -84,6 +85,15 @@ commands = [
     [
         "mutmut",
         "run",
+    ],
+    [
+        "mutmut",
+        "export-cicd-stats",
+    ],
+    [
+        "python",
+        "-c",
+        "import json, sys; stats = json.load(open('mutants/mutmut-cicd-stats.json')); total = stats['total'] - stats['skipped']; score = stats['killed'] * 100 / total if total else 0; print('Mutation score:', round(score, 1), '% (minimum 80%)'); sys.exit(score < 80)",
     ],
 ]
 
