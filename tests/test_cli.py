@@ -122,6 +122,7 @@ def test_cli_writes_message_after_confirmation(monkeypatch):
 
 def test_cli_aborts_when_confirmation_rejected(monkeypatch):
     """CLI aborts commit when user rejects generated message."""
+    monkeypatch.delenv("AI_PREPARE_COMMIT_AUTO_APPROVE", raising=False)
     holder = _configure_cli_dependencies(monkeypatch)
     monkeypatch.setattr(
         ai_prepare_commit_msg, "_confirm_generated_message", lambda _m: False

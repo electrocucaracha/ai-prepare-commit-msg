@@ -64,12 +64,15 @@ def test_get_prompt_token_limit_ignores_invalid_metadata(monkeypatch, reported_l
     assert token_budget.get_prompt_token_limit("custom/model") == 7_168
 
 
-def test_get_prompt_token_limit_keeps_at_least_one_input_token(monkeypatch):
+@pytest.mark.parametrize("reported_limit", [1, 1_024])
+def test_get_prompt_token_limit_keeps_at_least_one_input_token(
+    monkeypatch, reported_limit
+):
     """A context smaller than the response reserve still allows one input token."""
     monkeypatch.setattr(
         token_budget.litellm,
         "get_model_info",
-        lambda **_kwargs: {"max_input_tokens": 1_024},
+        lambda **_kwargs: {"max_input_tokens": reported_limit},
     )
 
     assert token_budget.get_prompt_token_limit("small-model") == 1

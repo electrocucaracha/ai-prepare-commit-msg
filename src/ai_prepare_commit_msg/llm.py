@@ -50,6 +50,15 @@ except ImportError:  # pragma: no cover - exercised via integration environment
 logger = logging.getLogger(__name__)
 
 CUSTOM_PROVIDER_ENTRY_POINT_GROUP = "ai_prepare_commit_msg.litellm_providers"
+CONVENTIONAL_COMMIT_INSTRUCTION = (
+    "Format the first line as a Conventional Commit: "
+    "<type>[optional scope][!]: <description>. Choose the type that "
+    "best describes the primary change from feat, fix, refactor, revert, "
+    "style, docs, test, chore, build, ci, or perf. Use a scope only when "
+    "supported by the diff and ! for breaking changes. Ensure valid "
+    "Conventional Commit syntax and an accurate type and scope. "
+    "See https://www.conventionalcommits.org/en/v1.0.0/."
+)
 
 OVERSIZED_DIFF_WARNING = (
     "Warning: staged diff is too large for AI commit message generation. "
@@ -315,15 +324,7 @@ def _resolve_messages(
             "Keep any body and footers."
         )
     else:
-        format_instruction = (
-            "Format the first line as a Conventional Commit: "
-            "<type>[optional scope][!]: <description>. Choose the type that "
-            "best describes the primary change from feat, fix, refactor, revert, "
-            "style, docs, test, chore, build, ci, or perf. Use a scope only when "
-            "supported by the diff and ! for breaking changes. Ensure valid "
-            "Conventional Commit syntax and an accurate type and scope. "
-            "See https://www.conventionalcommits.org/en/v1.0.0/."
-        )
+        format_instruction = CONVENTIONAL_COMMIT_INSTRUCTION
     first_user = next(
         (index for index, message in enumerate(loaded) if message["role"] != "system"),
         len(loaded),

@@ -176,6 +176,8 @@ def test_choose_type_removes_only_trailing_slashes_from_base_url(monkeypatch):
     observed = {}
 
     class FakeClient:
+        """Capture local-client options without contacting the service."""
+
         def __init__(self, **kwargs):
             observed.update(kwargs)
 
@@ -183,9 +185,11 @@ def test_choose_type_removes_only_trailing_slashes_from_base_url(monkeypatch):
             return self
 
         def __exit__(self, *_args):
+            """Leave the fake client context without cleanup."""
             return None
 
         def system_one(self, **_kwargs):
+            """Return a supported documentation choice."""
             return SimpleNamespace(
                 choices={"commit_type": SimpleNamespace(choice="docs")}
             )

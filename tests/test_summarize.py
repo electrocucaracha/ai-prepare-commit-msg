@@ -55,7 +55,7 @@ def test_split_text_by_token_budget_splits_oversized_section(monkeypatch):
 
     assert "".join(chunks) == diff
     assert all(len(chunk) <= 10 for chunk in chunks)
-    assert summarize.split_text_by_token_budget("mymodel", "", 10) == []
+    assert not summarize.split_text_by_token_budget("mymodel", "", 10)
 
 
 def test_split_text_by_token_budget_splits_one_oversized_line(monkeypatch):
@@ -385,7 +385,7 @@ def test_map_chunks_ignores_whitespace_only_summaries(monkeypatch):
     )
     chunk = summarize.DiffChunk("a.py", "diff a", "sys", ("a.py",))
 
-    assert summarize.map_chunks("mymodel", [chunk]) == []
+    assert not summarize.map_chunks("mymodel", [chunk])
 
 
 def test_map_chunks_keeps_partial_results_on_timeout(monkeypatch):
@@ -401,13 +401,18 @@ def test_map_chunks_keeps_partial_results_on_timeout(monkeypatch):
     )
 
     class RecordingExecutor:
+        """Capture executor shutdown arguments while using a real executor."""
+
         def __init__(self, max_workers):
+            """Create the underlying thread pool."""
             self.executor = real_executor(max_workers=max_workers)
 
         def submit(self, *args, **kwargs):
+            """Submit work to the underlying thread pool."""
             return self.executor.submit(*args, **kwargs)
 
         def shutdown(self, **kwargs):
+            """Record shutdown options before forwarding them."""
             shutdown_calls.append(kwargs)
             self.executor.shutdown(**kwargs)
 
@@ -519,7 +524,7 @@ def test_summarize_text_returns_empty_when_response_has_no_choices(monkeypatch):
         monkeypatch.setattr(
             summarize.litellm,
             "completion",
-            lambda **_kwargs: response,
+            lambda response=response, **_kwargs: response,
         )
         assert summarize.summarize_text("mymodel", "system prompt", "content") == ""
 
@@ -728,7 +733,7 @@ def test_summarize_diff_returns_original_when_no_summaries(monkeypatch, caplog):
     diff = "diff --git a/a.py b/a.py\n+x\n"
     with caplog.at_level("WARNING", logger=summarize.__name__):
         assert summarize.summarize_diff("mymodel", diff) == diff
-    assert "Summarization chain produced no output; giving up." in caplog.text
+    assert caplog.messages == ["Summarization chain produced no output; giving up."]
 
 
 def test_summarize_diff_keeps_one_token_minimum_for_tiny_budgets(monkeypatch):

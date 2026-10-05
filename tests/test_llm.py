@@ -89,6 +89,7 @@ def test_compression_stats_savings_ratio_is_zero_without_baseline(tokens_before)
 def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
     """The public helper calls ``litellm.completion`` and joins choices."""
 
+    monkeypatch.delenv("LITELLM_EXTRA_HEADERS_JSON", raising=False)
     # Replace prompt loader to keep this test self-contained
     monkeypatch.setattr(
         llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
@@ -196,15 +197,7 @@ def test_get_commit_msg_untyped_instructs_model_after_default_prompt(
         {"role": "system", "content": "header"},
         {
             "role": "system",
-            "content": (
-                "Format the first line as a Conventional Commit: "
-                "<type>[optional scope][!]: <description>. Choose the type that "
-                "best describes the primary change from feat, fix, refactor, revert, "
-                "style, docs, test, chore, build, ci, or perf. Use a scope only when "
-                "supported by the diff and ! for breaking changes. Ensure valid "
-                "Conventional Commit syntax and an accurate type and scope. "
-                "See https://www.conventionalcommits.org/en/v1.0.0/."
-            ),
+            "content": (llm.CONVENTIONAL_COMMIT_INSTRUCTION),
         },
         {"role": "user", "content": "template"},
         {"role": "user", "content": "diff"},
@@ -234,15 +227,7 @@ def test_get_commit_msg_builds_default_instruction_without_prompt_messages(monke
         [
             {
                 "role": "system",
-                "content": (
-                    "Format the first line as a Conventional Commit: "
-                    "<type>[optional scope][!]: <description>. Choose the type that "
-                    "best describes the primary change from feat, fix, refactor, revert, "
-                    "style, docs, test, chore, build, ci, or perf. Use a scope only when "
-                    "supported by the diff and ! for breaking changes. Ensure valid "
-                    "Conventional Commit syntax and an accurate type and scope. "
-                    "See https://www.conventionalcommits.org/en/v1.0.0/."
-                ),
+                "content": llm.CONVENTIONAL_COMMIT_INSTRUCTION,
             },
             {"role": "user", "content": "diff"},
         ]
@@ -475,7 +460,7 @@ def test_get_commit_msg_returns_empty_on_timeout(monkeypatch, caplog):
     def fast_completion(**_kwargs):
         return SimpleNamespace(choices=[])
 
-    def raise_timeout(self, timeout=None):
+    def raise_timeout(_self, timeout=None):
         observed_timeouts.append(timeout)
         raise llm.concurrent.futures.TimeoutError("future did not complete in time")
 
@@ -663,6 +648,12 @@ def test__load_prompt_messages_file_handling(tmp_path, monkeypatch):
 
     monkeypatch.setattr(llm.Path, "read_text", read_text)
 
+    def assert_invalid_prompt(filename, content, error_message):
+        path = tmp_path / filename
+        path.write_text(content)
+        with pytest.raises(TypeError, match=error_message):
+            llm._load_prompt_messages(path)
+
     # non-existent file -> FileNotFoundError
     with pytest.raises(FileNotFoundError, match="not found or not a file"):
         llm._load_prompt_messages(tmp_path / "nope.yml")
@@ -670,58 +661,51 @@ def test__load_prompt_messages_file_handling(tmp_path, monkeypatch):
         llm._load_prompt_messages(tmp_path)
 
     # top-level not a mapping -> TypeError
-    p = tmp_path / "bad.yml"
-    p.write_text("- not: a mapping")
-    with pytest.raises(TypeError, match="mapping at the top level"):
-        llm._load_prompt_messages(p)
+    assert_invalid_prompt("bad.yml", "- not: a mapping", "mapping at the top level")
 
-    empty = tmp_path / "empty-file.yml"
-    empty.write_text("")
-    with pytest.raises(TypeError, match="mapping at the top level"):
-        llm._load_prompt_messages(empty)
+    assert_invalid_prompt("empty-file.yml", "", "mapping at the top level")
 
     # no messages key -> empty list
-    p2 = tmp_path / "empty.yml"
-    p2.write_text("{}")
-    assert not llm._load_prompt_messages(p2)
+    (tmp_path / "empty.yml").write_text("{}")
+    assert not llm._load_prompt_messages(tmp_path / "empty.yml")
 
-    empty_messages = tmp_path / "empty-messages.yml"
-    empty_messages.write_text("messages: []")
-    assert llm._load_prompt_messages(empty_messages) == []
+    (tmp_path / "empty-messages.yml").write_text("messages: []")
+    assert not llm._load_prompt_messages(tmp_path / "empty-messages.yml")
 
     # messages not a list -> TypeError
-    p3 = tmp_path / "notalist.yml"
-    p3.write_text("messages: yes")
-    with pytest.raises(TypeError, match="'messages' must be a list"):
-        llm._load_prompt_messages(p3)
+    assert_invalid_prompt("notalist.yml", "messages: yes", "'messages' must be a list")
 
     # message item not a mapping -> TypeError
-    p4 = tmp_path / "baditem.yml"
-    p4.write_text("messages:\n  - role: system\n    content: valid\n  - not-a-mapping")
-    with pytest.raises(TypeError, match="message at index 1 must be a mapping/dict"):
-        llm._load_prompt_messages(p4)
+    assert_invalid_prompt(
+        "baditem.yml",
+        "messages:\n  - role: system\n    content: valid\n  - not-a-mapping",
+        "message at index 1 must be a mapping/dict",
+    )
 
     # Role and content are validated independently.
-    p5 = tmp_path / "badrole.yml"
-    p5.write_text("messages:\n  - role: 1\n    content: valid")
-    with pytest.raises(TypeError, match="string 'role' and 'content'"):
-        llm._load_prompt_messages(p5)
-
-    p6 = tmp_path / "badcontent.yml"
-    p6.write_text("messages:\n  - role: system\n    content: 2")
-    with pytest.raises(TypeError, match="string 'role' and 'content'"):
-        llm._load_prompt_messages(p6)
+    assert_invalid_prompt(
+        "badrole.yml",
+        "messages:\n  - role: 1\n    content: valid",
+        "string 'role' and 'content'",
+    )
+    assert_invalid_prompt(
+        "badcontent.yml",
+        "messages:\n  - role: system\n    content: 2",
+        "string 'role' and 'content'",
+    )
 
     for index, message in enumerate(("content: hi", "role: system")):
-        missing_field = tmp_path / f"missing-field-{index}.yml"
-        missing_field.write_text(f"messages:\n  - {message}")
-        with pytest.raises(TypeError, match="string 'role' and 'content'"):
-            llm._load_prompt_messages(missing_field)
+        assert_invalid_prompt(
+            f"missing-field-{index}.yml",
+            f"messages:\n  - {message}",
+            "string 'role' and 'content'",
+        )
 
     # valid file
-    p7 = tmp_path / "good.yml"
-    p7.write_text("messages:\n  - role: system\n    content: hi")
-    assert llm._load_prompt_messages(p7) == [{"role": "system", "content": "hi"}]
+    (tmp_path / "good.yml").write_text("messages:\n  - role: system\n    content: hi")
+    assert llm._load_prompt_messages(tmp_path / "good.yml") == [
+        {"role": "system", "content": "hi"}
+    ]
     assert encodings and set(encodings) == {"utf-8"}
 
 
@@ -835,8 +819,10 @@ def test_load_custom_providers_warns_on_load_failure(monkeypatch, caplog):
 
     assert not llm.litellm.custom_provider_map
     assert [record.getMessage() for record in caplog.records] == [
-        "Failed to load LiteLLM custom provider 'bad_provider' "
-        "from 'badpkg.llm:Bad': missing dep"
+        (
+            "Failed to load LiteLLM custom provider 'bad_provider' "
+            "from 'badpkg.llm:Bad': missing dep"
+        )
     ]
 
 
@@ -846,6 +832,8 @@ def test_load_custom_providers_warns_on_handler_construction_failure(
     """A discovered provider whose handler cannot be constructed is skipped."""
 
     class BrokenHandler:
+        """Fail construction to exercise provider registration error handling."""
+
         def __init__(self):
             raise RuntimeError("handler initialization failed")
 
@@ -861,8 +849,10 @@ def test_load_custom_providers_warns_on_handler_construction_failure(
 
     assert llm.litellm.custom_provider_map == []
     assert [record.getMessage() for record in caplog.records] == [
-        "Failed to load LiteLLM custom provider 'broken_provider' "
-        "from 'brokenpkg.llm:Handler': handler initialization failed"
+        (
+            "Failed to load LiteLLM custom provider 'broken_provider' "
+            "from 'brokenpkg.llm:Handler': handler initialization failed"
+        )
     ]
 
 
