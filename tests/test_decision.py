@@ -186,7 +186,7 @@ def test_choose_type_removes_only_trailing_slashes_from_base_url(monkeypatch):
 
         def __exit__(self, *_args):
             """Leave the fake client context without cleanup."""
-            return None
+            return
 
         def system_one(self, **_kwargs):
             """Return a supported documentation choice."""
