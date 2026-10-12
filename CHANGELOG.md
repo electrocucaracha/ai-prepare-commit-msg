@@ -11,6 +11,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.0.3] - 2026-10-12
+
+### Changed
+
+- Clarified the integration documentation to provide detailed explanations of the hook's behavior, including compression, fallback handling, and metric reporting, as well as the implications of lossy compression and token limits. [56673c81](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/56673c81b78fc2e7e52d8a4ad245d05b54b8b930)
+
+## [20.0.2] - 2026-10-11
+
+### Changed
+
+- Simplified CI configuration and tool versions to improve consistency and reduce maintenance overhead. [7b5fe02c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/7b5fe02c8e7da67ec1dbe64d6ad8158fd8ab9c9f)
+
+## [20.0.1] - 2026-10-09
+
+### Changed
+
+- Updated GitHub Actions workflows to use the latest versions of dependencies, specifically aiohttp 3.14.4, potentially requiring updates or migrations to ensure compatibility. [193efa78](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/193efa78e031763174041cc46eddb7bbee7bcfa8)
+
+## [20.0.0] - 2026-10-09
+
+### Removed
+
+- Simplified the test fake client's behavior by removing the redundant return of None from the **exit** method, which has no functional impact but improves code readability. [67358138](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/673581382c65420dfc30a2268ea9103d6428ff55)
+
+## [19.10.1] - 2026-10-05
+
+### Changed
+
+- Updated dependencies in the `uv.lock` file to reflect the latest version of the `aiohttp` library, version 3.14.3, and corresponding dependencies, including `yarl`, with new wheel files for various platforms now available. [b2defe37](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/b2defe37b8a2d1ad60a9a4ac9e42d0d4954fe962)
+
+## [19.10.0] - 2026-10-04
+
+### Added
+
+- pytest now fails if coverage falls below 80% due to enforced thresholds for unit tests and mutation coverage in CI. [7d52eabd](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/7d52eabdd50ce0e1e6e16cb6b6abcaacc1cf4e16)
+
+## [19.9.4] - 2026-10-04
+
+### Changed
+
+- Simplified the conventional commit instruction constant usage, enabling consistent and reusable commit messages across the AI, and improving test reliability and maintainability. [ae6037ea](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/ae6037eaf0afec5b274e213796cb3be53fe5ec24)
+
+## [19.9.3] - 2026-10-04
+
+### Changed
+
+- Optimized the CI workflow to run each tox environment as a separate job, enabling faster overall execution through parallelism and more precise identification of failing environments. [8a5978f1](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8a5978f190e86729d9f5a4fa1e077df38971b3d0)
+
+## [19.9.2] - 2026-10-04
+
+### Changed
+
+- Optimized test coverage and error handling for the llm, summarize, and token_budget modules, enabling more robust detection of API or user misconfiguration and bolstering regression safety. [dded647b](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/dded647bf79095d6d7ee8005300d8c06f420a78c)
+
+## [19.9.1] - 2026-10-03
+
+### Changed
+
+- Expanded the on-demand CI workflow to run a broader range of test environments, including coverage, mutation, and BDD tests, thereby improving CI verification and validation of branches. [3c5e63ad](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/3c5e63adb3137408c5163f19b9225adcc784628c)
+
+## [19.9.0] - 2026-09-30
+
+### Added
+
+- Enabled comprehensive release notes for versions 19.3.0 to 19.8.1, documenting significant changes and informing users and contributors of recent project developments. [04b90679](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/04b906799be9ee3dd0f110e0d84e6b01e71aab4d)
+
 ## [19.8.1] - 2026-09-30
 
 ### Changed
