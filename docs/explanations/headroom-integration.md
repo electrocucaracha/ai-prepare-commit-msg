@@ -6,52 +6,47 @@ nav_order: 2
 
 # Headroom prompt compression
 
-This project uses Headroom's inline Python API to reduce the size of large prompts
-before they reach LiteLLM.
-The compression is optional.
-It can lower token use and reduce pressure on the model's context window,
-but it is not required to generate a commit message.
+The hook uses Headroom's Python library to compress prompts before sending them through LiteLLM.
+Compression can reduce token use and help large diffs fit within the model's context window.
+The hook attempts compression automatically,
+but it can still generate a commit message when compression is unavailable or fails.
 
 ## Why the project uses it
 
 The prompt contains the commit-message instructions and the staged Git diff.
-Large diffs can repeat file headers,
-context lines,
-and other information that is less useful to the model.
-Headroom removes some of that repetition while keeping the important shape of the change.
+Large diffs often contain repeated headers and context lines.
+Headroom can remove some of that repetition while retaining information about the changes.
 
 The project still owns the final size check.
 Headroom reduces the prompt;
 it does not guarantee that every prompt fits the model's context window.
 
-This integration uses Headroom as an inline library.
-It does not run Headroom as a proxy,
-use its MCP tools,
-or depend on its Compress-Cache-Retrieve (CCR) flow.
+The project calls Headroom directly.
+It does not run a Headroom proxy or provide retrieval tools to the model.
+Headroom can internally cache original content and emit Compress-Cache-Retrieve (CCR) markers,
+but this integration does not let the model retrieve omitted content.
 
 ## How the integration works
 
-The project loads the configured prompt messages and appends the staged diff as the last user message.
-It passes the complete list to `headroom.compress.compress()`.
+The hook loads the configured prompt,
+adds the commit-message format instruction,
+and appends the staged diff as the final user message.
+It passes these messages to `headroom.compress.compress()`.
 
-Headroom examines message content and chooses a suitable content-aware transform.
-For a unified diff,
-that can be the diff transform.
-The same routing system supports other content types,
-including JSON,
-logs,
-tables,
-configuration,
-and plain text.
+Headroom examines the content and selects a suitable compressor.
+Git diffs can use a diff-specific compressor;
+other supported content types include JSON, logs, tables, configuration, and plain text.
 
-The project sets `compress_user_messages=True` because the staged diff is a user message.
-It sets `protect_recent=0` so the final diff message is eligible for compression.
-The project asks LiteLLM for the configured model's maximum input size,
-reserves space for the response,
-and passes the resulting prompt limit to Headroom.
-Models that are not present in LiteLLM's metadata use a conservative 8,192-token context-window fallback.
+The hook sets `compress_user_messages=True` and `protect_recent=0`
+so the final user message containing the diff is eligible for compression.
+It also passes Headroom the prompt token limit described below.
 
-## How the prompt limit is resolved
+Headroom returns the resulting messages,
+input and output token counts,
+and the transforms it applied.
+The hook records compression metrics only when the input token count is positive (`tokens_before > 0`).
+
+## Prompt token limit
 
 The hook reads `max_input_tokens` from `litellm.get_model_info()`.
 It does not use LiteLLM's `max_tokens` value,
@@ -60,71 +55,78 @@ because that value can describe the model's output limit rather than its input c
 The hook reserves 1,024 tokens for the generated response.
 For example,
 a model with a 128,000-token maximum input size receives a 126,976-token prompt limit.
-An unmapped model uses the 8,192-token fallback
-and therefore receives a 7,168-token prompt limit.
+If metadata lookup fails or returns no valid positive input limit,
+the hook uses an 8,192-token fallback.
+After reserving response tokens,
+this leaves a 7,168-token prompt limit.
+The fallback supports models accessed through custom gateways or proxy aliases,
+but it is not a guarantee of the provider's actual limit.
 
-Metadata lookup is a safeguard,
-not a dependency for successful generation.
-If LiteLLM cannot identify the model or returns no positive input limit,
-the fallback keeps compression and summarization available for custom gateways and proxy aliases.
+## Compression sequence
 
-Headroom returns the messages after transformation,
-the token counts before and after compression,
-and the transforms it applied.
-The project records those counts only when Headroom provides a positive baseline.
+![Headroom compression sequence diagram](../assets/diagrams/headroom-sequence.png)
 
-See the [Headroom compression sequence diagram source](../assets/diagrams/headroom-sequence.drawio)
-for the complete component and message flow.
+Source: [Editable draw.io diagram](../assets/diagrams/headroom-sequence.drawio).
 
-The diagram shows the boundary between the project,
-Headroom,
-LiteLLM,
-and the model provider.
-Headroom performs the optional transformation;
-LiteLLM estimates the resulting prompt;
-the provider generates the commit message only after the size check passes.
+The diagram separates Headroom's compression work from the hook's size check and model request.
+It summarizes `headroom-ai` 0.40.0,
+the version recorded in this repository's [lockfile](../../uv.lock).
+The package dependency is unpinned,
+so installations can resolve a different version with different internal behavior.
 
-If the estimate is still above the resolved prompt token limit,
-the project replaces the diff with its map-reduce summary.
-It compresses and measures the new prompt again.
-If the prompt remains too large,
-the project skips the model request and returns a warning.
+Within Headroom:
 
-## What compression preserves
+- Compression options determine which messages are eligible.
+- The pipeline extracts user context and counts the input tokens.
+- When enabled, `CacheAligner` stabilizes the prompt prefix to support provider caching.
+- `ContentRouter` selects a compressor for eligible content.
+- For Git diffs, the Rust-backed `DiffCompressor` reduces context and limits the number of files and hunks.
+- Headroom counts the output tokens and restores the original messages if compression increases the count.
 
-Headroom is lossy.
-The compressed result is not a byte-for-byte copy of the diff.
-Its diff-aware transform is intended to preserve information that helps a model understand a patch,
-including:
+The diagram groups the router and compressors into one participant
+and omits optional hooks and telemetry.
 
-- file boundaries and patch structure
-- meaningful added and removed lines
-- relevant hunks and nearby context
+## When the prompt is still too large
 
-It can remove repeated headers,
-surrounding context,
-and other low-value boilerplate.
-The result depends on the size and shape of the diff,
-so the project does not promise a fixed compression ratio or preservation of every line.
+After compression,
+the hook asks LiteLLM to estimate the prompt's token count.
+If the estimate exceeds the prompt limit,
+the hook replaces the diff with a [map-reduce summary](summarization-chain.md),
+then compresses and measures the prompt again.
+If the new estimate still exceeds the limit,
+the hook skips commit-message generation and returns a warning.
+
+Token estimation is a safeguard,
+not a requirement for generation.
+If LiteLLM cannot estimate the token count,
+the hook proceeds with the model request.
+The provider can still reject a prompt that exceeds its limit.
+
+## What compression can remove
+
+Compression can be lossy:
+the result may not contain every line of the original diff.
+The diff-specific compressor aims to retain useful patch structure,
+added and removed lines,
+and relevant context.
+However,
+limits on files and hunks can omit parts of a large change.
+The project does not guarantee a fixed compression ratio or complete preservation of the diff.
 
 ## Fallback behavior
 
-The integration fails open.
-If Headroom is not installed,
-cannot be imported,
-throws an exception,
-or returns no usable token baseline,
-the project keeps the original messages.
-An unchanged result is also valid when the content is too small,
-unrecognized,
-unsafe to transform,
+If Headroom is unavailable,
+raises an exception,
+or returns a nonpositive input token count,
+the hook keeps the original messages.
+Headroom can also leave content unchanged when it is too small,
+unsuitable for compression,
 or unlikely to save tokens.
 
-These fallbacks keep an optimization failure from blocking the Git hook.
-The project still handles an oversized prompt separately:
-it summarizes the diff,
-checks the result again,
-and stops safely when the prompt remains above the limit.
+A compression failure therefore does not block generation by itself.
+The hook still attempts the token estimate and oversized-prompt handling described above.
+
+## Compression metrics
 
 The CLI reports compression metrics when they are available:
 
@@ -132,9 +134,14 @@ The CLI reports compression metrics when they are available:
 Headroom: 2395 -> 2131 prompt tokens over 1 request(s); saved 264 (11.0%).
 ```
 
-The counts describe the compression calls made in the current process.
-They are useful for observing savings,
-not a promise about every diff.
+Here,
+compression reduced the prompt from 2,395 to 2,131 tokens,
+saving 264 tokens (11.0%).
+The CLI aggregates metrics from compression calls in the current process;
+`request(s)` counts those calls,
+not model-provider requests.
+The savings describe this run,
+not what every diff will achieve.
 
 ## Further reading
 
@@ -143,9 +150,12 @@ including content routing and safety gates,
 see [How compression works](https://docs.headroomlabs.ai/docs/how-compression-works).
 For its supported entry points and the distinction between the inline library, proxy, and CCR flows,
 see [Headroom architecture](https://docs.headroomlabs.ai/docs/architecture).
-The project's dependency is published in the [Headroom repository](https://github.com/headroomlabs-ai/headroom).
+For the implementation summarized in the diagram,
+see Headroom 0.40.0's [inline API](https://github.com/headroomlabs-ai/headroom/blob/v0.40.0/headroom/compress.py),
+[transform pipeline](https://github.com/headroomlabs-ai/headroom/blob/v0.40.0/headroom/transforms/pipeline.py),
+and [diff compressor](https://github.com/headroomlabs-ai/headroom/blob/v0.40.0/headroom/transforms/diff_compressor.py).
 
-## Related topic
+## Related topics
 
-For the larger diff-handling process,
-see [Large diff summarization chain](summarization-chain.md).
+- [How the hook works](how-it-works.md) explains the complete commit-message flow.
+- [Large diff summarization chain](summarization-chain.md) explains how the hook summarizes oversized diffs.
