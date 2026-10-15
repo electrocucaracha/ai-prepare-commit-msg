@@ -7,6 +7,43 @@ import pytest
 from ai_prepare_commit_msg import decision
 
 
+def _fake_client_factory(handle_system_one, capture=None):
+    """Build a ``TypeSafeClient`` stand-in without contacting any service.
+
+    Args:
+        handle_system_one: Callable invoked with the ``system_one`` kwargs;
+            its return value becomes the response.
+        capture: Optional mutable mapping updated with the constructor kwargs.
+
+    Returns:
+        type: A context-manager class suitable for monkeypatching
+        ``decision.TypeSafeClient``.
+    """
+
+    class FakeClient:
+        """Stand-in client whose behavior is supplied by the caller."""
+
+        def __init__(self, **kwargs):
+            if capture is not None:
+                capture.update(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def system_one(self, **kwargs):
+            return handle_system_one(**kwargs)
+
+    return FakeClient
+
+
+def _choice_response(answer):
+    """Return a fake decision response choosing ``answer``."""
+    return SimpleNamespace(choices={"commit_type": SimpleNamespace(choice=answer)})
+
+
 def test_add_commit_type_replaces_prefix_and_preserves_body(monkeypatch):
     """Classify untyped text even if the generator supplied a type and scope."""
     observed = []
@@ -55,30 +92,21 @@ def test_choose_type_uses_compatible_choice_api(monkeypatch, base_url, expected_
     """Both services receive the generated description and return a choice."""
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
     observed = {}
+    options = {}
 
-    class FakeClient:
-        """Capture client calls without contacting the decision service."""
+    def handle_system_one(*, state, questions):
+        """Capture the decision request and return a supported choice."""
+        observed["state"] = state
+        observed["question"] = questions["commit_type"]
+        return _choice_response("fix")
 
-        def __init__(self, **kwargs):
-            observed["options"] = kwargs
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def system_one(self, *, state, questions):
-            """Capture the decision request and return a supported choice."""
-            observed["state"] = state
-            observed["question"] = questions["commit_type"]
-            return SimpleNamespace(
-                choices={"commit_type": SimpleNamespace(choice="fix")}
-            )
-
-    monkeypatch.setattr(decision, "TypeSafeClient", FakeClient)
+    monkeypatch.setattr(
+        decision,
+        "TypeSafeClient",
+        _fake_client_factory(handle_system_one, capture=options),
+    )
     assert decision.choose_type("correct invalid input", base_url) == "fix"
-    assert observed["options"] == {
+    assert options == {
         "base_url": base_url,
         "api_key": "test-key",
         "model": expected_model,
@@ -115,26 +143,11 @@ def test_choose_type_requires_jev_key(monkeypatch):
 @pytest.mark.parametrize("answer", ["unknown", None, 1])
 def test_choose_type_rejects_unknown_answer(monkeypatch, answer):
     """Reject unsupported or non-string types rather than writing malformed commits."""
-
-    class FakeClient:
-        """Return an unsupported answer without contacting the service."""
-
-        def __init__(self, **_kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def system_one(self, **_kwargs):
-            """Return an answer that should be rejected by the client."""
-            return SimpleNamespace(
-                choices={"commit_type": SimpleNamespace(choice=answer)}
-            )
-
-    monkeypatch.setattr(decision, "TypeSafeClient", FakeClient)
+    monkeypatch.setattr(
+        decision,
+        "TypeSafeClient",
+        _fake_client_factory(lambda **_kwargs: _choice_response(answer)),
+    )
     with pytest.raises(ValueError) as error:
         decision.choose_type("description", "http://127.0.0.1:11435")
     assert str(error.value) == (
@@ -147,25 +160,13 @@ def test_choose_type_does_not_require_key_for_local_service(monkeypatch):
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     observed = {}
 
-    class FakeClient:
-        """Capture local-client options without contacting the service."""
-
-        def __init__(self, **kwargs):
-            observed.update(kwargs)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def system_one(self, **_kwargs):
-            """Return a supported documentation choice."""
-            return SimpleNamespace(
-                choices={"commit_type": SimpleNamespace(choice="docs")}
-            )
-
-    monkeypatch.setattr(decision, "TypeSafeClient", FakeClient)
+    monkeypatch.setattr(
+        decision,
+        "TypeSafeClient",
+        _fake_client_factory(
+            lambda **_kwargs: _choice_response("docs"), capture=observed
+        ),
+    )
     assert decision.choose_type("update docs", "http://127.0.0.1:11435") == "docs"
     assert observed["api_key"] == "local"
 
@@ -175,26 +176,13 @@ def test_choose_type_removes_only_trailing_slashes_from_base_url(monkeypatch):
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     observed = {}
 
-    class FakeClient:
-        """Capture local-client options without contacting the service."""
-
-        def __init__(self, **kwargs):
-            observed.update(kwargs)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            """Leave the fake client context without cleanup."""
-            return
-
-        def system_one(self, **_kwargs):
-            """Return a supported documentation choice."""
-            return SimpleNamespace(
-                choices={"commit_type": SimpleNamespace(choice="docs")}
-            )
-
-    monkeypatch.setattr(decision, "TypeSafeClient", FakeClient)
+    monkeypatch.setattr(
+        decision,
+        "TypeSafeClient",
+        _fake_client_factory(
+            lambda **_kwargs: _choice_response("docs"), capture=observed
+        ),
+    )
 
     assert (
         decision.choose_type("update docs", "http://127.0.0.1:11435/apiX///", model="")
@@ -235,23 +223,10 @@ def test_choose_type_rejects_non_base_urls(base_url):
 def test_choose_type_wraps_service_failures(monkeypatch, failure):
     """SDK failures are exposed as one stable runtime error type."""
 
-    class FailingClient:
-        """Raise a selected SDK failure from the decision request."""
+    def raise_failure(**_kwargs):
+        raise failure
 
-        def __init__(self, **_kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def system_one(self, **_kwargs):
-            """Raise the injected SDK failure from the decision request."""
-            raise failure
-
-    monkeypatch.setattr(decision, "TypeSafeClient", FailingClient)
+    monkeypatch.setattr(decision, "TypeSafeClient", _fake_client_factory(raise_failure))
     with pytest.raises(RuntimeError) as error:
         decision.choose_type("description", "http://127.0.0.1:11435")
     assert str(error.value) == f"Decision request failed: {failure}"

@@ -40,8 +40,8 @@ class DummyRepo:
         self.written_message = commit_msg
 
 
-def _configure_cli_dependencies(monkeypatch):
-    """Patch repo builder and LLM response for CLI tests.
+def _patch_git_repository(monkeypatch, repo_cls=DummyRepo):
+    """Patch ``GitRepository`` construction and capture the fake instance.
 
     Returns:
         dict: Mutable holder with the created fake repository at ``holder["repo"]``.
@@ -49,11 +49,21 @@ def _configure_cli_dependencies(monkeypatch):
     holder = {}
 
     def build_repo(_path):
-        repo = DummyRepo(_path)
+        repo = repo_cls(_path)
         holder["repo"] = repo
         return repo
 
     monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+    return holder
+
+
+def _configure_cli_dependencies(monkeypatch):
+    """Patch repo builder and LLM response for CLI tests.
+
+    Returns:
+        dict: Mutable holder with the created fake repository at ``holder["repo"]``.
+    """
+    holder = _patch_git_repository(monkeypatch)
     monkeypatch.setattr(ai_prepare_commit_msg, "get_commit_msg", lambda *_args: "msg")
 
     return holder
@@ -291,14 +301,7 @@ def test_cli_replaces_unexpected_generated_type(monkeypatch):
 
 def test_cli_retries_until_message_generated(monkeypatch):
     """CLI retries empty results and writes the first non-empty message."""
-    holder = {}
-
-    def build_repo(_path):
-        repo = DummyRepo(_path)
-        holder["repo"] = repo
-        return repo
-
-    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+    holder = _patch_git_repository(monkeypatch)
 
     responses = iter(["", "   ", "final message"])
     result, sleep_calls = _invoke_cli_with_retries(
@@ -314,14 +317,7 @@ def test_cli_retries_until_message_generated(monkeypatch):
 
 def test_cli_errors_when_retry_limit_reached(monkeypatch):
     """CLI exits with an error when message remains empty after all retries."""
-    holder = {}
-
-    def build_repo(_path):
-        repo = DummyRepo(_path)
-        holder["repo"] = repo
-        return repo
-
-    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+    holder = _patch_git_repository(monkeypatch)
     result, sleep_calls = _invoke_cli_with_retries(
         monkeypatch,
         _always_empty_message,
@@ -338,14 +334,7 @@ def test_cli_errors_when_retry_limit_reached(monkeypatch):
 
 def test_cli_uses_user_provided_retry_sleep(monkeypatch):
     """CLI waits for the user-provided retry sleep duration."""
-    holder = {}
-
-    def build_repo(_path):
-        repo = DummyRepo(_path)
-        holder["repo"] = repo
-        return repo
-
-    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+    holder = _patch_git_repository(monkeypatch)
 
     responses = iter(["", "message after wait"])
     result, sleep_calls = _invoke_cli_with_retries(
@@ -369,14 +358,7 @@ def test_cli_skips_generation_when_no_staged_changes(monkeypatch):
             """Return an empty diff to simulate no staged changes."""
             return ""
 
-    holder = {}
-
-    def build_repo(_path):
-        repo = EmptyDiffRepo(_path)
-        holder["repo"] = repo
-        return repo
-
-    monkeypatch.setattr(ai_prepare_commit_msg.git, "GitRepository", build_repo)
+    holder = _patch_git_repository(monkeypatch, repo_cls=EmptyDiffRepo)
 
     def fail_if_called(*_args):
         raise AssertionError("LLM should not be called without staged changes")
