@@ -36,8 +36,23 @@ def test_init_raises_runtimeerror_when_repo_invalid(monkeypatch, tmp_path, error
 
     monkeypatch.setattr(gitmod, "Repo", fake_repo)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match=f"Not a git repository: {tmp_path}"):
         gitmod.GitRepository(tmp_path)
+
+
+def test_init_defaults_to_current_directory(monkeypatch):
+    """Omitting ``path`` constructs the repository against the current dir."""
+    observed = []
+
+    def fake_repo(path):
+        observed.append(path)
+        return object()
+
+    monkeypatch.setattr(gitmod, "Repo", fake_repo)
+
+    gitmod.GitRepository()
+
+    assert observed == ["."]
 
 
 def test_get_diff_message_and_write_commit_msg(monkeypatch, tmp_path):
@@ -103,6 +118,38 @@ def test_get_diff_message_and_write_commit_msg(monkeypatch, tmp_path):
     assert open_calls == [("w", "utf-8"), ("w", "utf-8")]
 
 
+def test_write_commit_msg_logs_destination_path(monkeypatch, tmp_path, caplog):
+    """A successful write logs the exact destination path it wrote to."""
+    fake_git_dir = tmp_path / "gitdir4"
+
+    class DummyGit:
+        """Fake git interface returning a preset git dir."""  # pylint: disable=too-few-public-methods
+
+        def rev_parse(self, _arg):
+            """Return the path to the fake git directory."""
+            return str(fake_git_dir)
+
+    class DummyRepo:
+        """Container exposing a ``git`` attribute."""  # pylint: disable=too-few-public-methods
+
+        def __init__(self, _path):
+            """Initialize the container with a `DummyGit` instance."""
+            self.git = DummyGit()
+
+    monkeypatch.setattr(gitmod, "Repo", DummyRepo)
+
+    repo = gitmod.GitRepository(tmp_path)
+    commit_editmsg_path = fake_git_dir / "COMMIT_EDITMSG"
+
+    with caplog.at_level("INFO", logger=gitmod.logger.name):
+        repo.write_commit_msg("commit-body")
+
+    assert len(caplog.records) == 1
+    assert caplog.records[0].getMessage() == (
+        f"Wrote commit message to {commit_editmsg_path}."
+    )
+
+
 @pytest.mark.parametrize("diff_text", ["", None])
 def test_get_diff_message_empty_when_no_staged_changes(
     monkeypatch, tmp_path, diff_text
@@ -134,7 +181,7 @@ def test_get_diff_message_empty_when_no_staged_changes(
     assert repo.get_diff_message() == ""
 
 
-def test_write_commit_msg_reraises_on_os_error(monkeypatch, tmp_path):
+def test_write_commit_msg_reraises_on_os_error(monkeypatch, tmp_path, caplog):
     """A write failure is logged and re-raised instead of being swallowed."""
 
     class DummyGit:
@@ -159,5 +206,12 @@ def test_write_commit_msg_reraises_on_os_error(monkeypatch, tmp_path):
     monkeypatch.setattr(gitmod.Path, "open", fake_open)
 
     repo = gitmod.GitRepository(tmp_path)
-    with pytest.raises(OSError):
+    commit_editmsg_path = tmp_path / "gitdir3" / "COMMIT_EDITMSG"
+
+    with caplog.at_level("ERROR", logger=gitmod.logger.name), pytest.raises(OSError):
         repo.write_commit_msg("commit-body")
+
+    assert len(caplog.records) == 1
+    assert caplog.records[0].getMessage() == (
+        f"Failed writing commit message to {commit_editmsg_path}"
+    )

@@ -464,6 +464,28 @@ def test_prompt_on_stream_rejects_explicit_no():
         assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is False
 
 
+def test_prompt_on_stream_accepts_lowercase_n_without_reprompting():
+    """A bare 'n' is rejected on the first read, without a re-prompt."""
+    stream = _FakeInteractiveStream("n\n")
+
+    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is False
+    assert stream.getvalue() == (
+        "\nGenerated commit message:\n\ncommit body\n\n"
+        "Use this generated commit message? [Y/n]: "
+    )
+
+
+def test_prompt_on_stream_accepts_lowercase_no_without_reprompting():
+    """A bare 'no' is rejected on the first read, without a re-prompt."""
+    stream = _FakeInteractiveStream("no\n")
+
+    assert ai_prepare_commit_msg._prompt_on_stream(stream, "commit body") is False
+    assert stream.getvalue() == (
+        "\nGenerated commit message:\n\ncommit body\n\n"
+        "Use this generated commit message? [Y/n]: "
+    )
+
+
 def test_prompt_on_stream_returns_false_on_eof():
     """Reaching end-of-stream without a response rejects the message."""
     stream = _FakeInteractiveStream("")
@@ -507,6 +529,7 @@ def test_confirm_generated_message_reads_from_tty(monkeypatch):
     monkeypatch.setattr(ai_prepare_commit_msg.Path, "open", fake_open)
 
     assert ai_prepare_commit_msg._confirm_generated_message("commit body") is True
+    assert "commit body" in fake_tty.getvalue()
 
 
 def test_confirm_generated_message_returns_false_without_tty(monkeypatch, caplog):
@@ -519,7 +542,6 @@ def test_confirm_generated_message_returns_false_without_tty(monkeypatch, caplog
 
     with caplog.at_level("ERROR", logger=ai_prepare_commit_msg.__name__):
         assert ai_prepare_commit_msg._confirm_generated_message("commit body") is False
-    assert (
+    assert [record.getMessage() for record in caplog.records] == [
         "No interactive TTY available; refusing to auto-approve commit message."
-        in caplog.text
-    )
+    ]

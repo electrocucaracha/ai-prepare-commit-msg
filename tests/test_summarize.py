@@ -46,6 +46,13 @@ def test_split_diff_by_file():
     assert not summarize.split_diff_by_file("")
 
 
+def test_split_diff_by_file_with_no_leading_preamble():
+    """A diff that starts directly with the marker has no empty leading section."""
+    diff = "diff --git a b\n+1"
+
+    assert summarize.split_diff_by_file(diff) == ["diff --git a b\n+1"]
+
+
 def test_split_text_by_token_budget_splits_oversized_section(monkeypatch):
     """A single file section larger than the budget is split by line."""
     monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: len(text))
@@ -110,6 +117,39 @@ def test_split_text_by_token_budget_splits_short_oversized_line(monkeypatch):
     assert summarize.split_text_by_token_budget("model", "xy", 1) == ["x", "y"]
 
 
+def test_split_text_by_token_budget_starts_running_total_at_zero(monkeypatch):
+    """The running token total starts at zero, not with a phantom token."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: len(text))
+
+    chunks = summarize.split_text_by_token_budget(
+        "model", "aaaa\nb\n", max_chunk_tokens=7
+    )
+
+    assert chunks == ["aaaa\nb\n"]
+
+
+def test_split_text_by_token_budget_resets_running_total_after_a_flush(monkeypatch):
+    """The running total is reset to zero, not re-seeded, after each flush."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: len(text))
+
+    chunks = summarize.split_text_by_token_budget(
+        "model", "aaaaa\nbbbbb\nc\nddd\n", max_chunk_tokens=6
+    )
+
+    assert chunks == ["aaaaa\n", "bbbbb\n", "c\nddd\n"]
+
+
+def test_split_text_by_token_budget_joins_chunks_without_a_separator(monkeypatch):
+    """Flushed and trailing chunks are the raw joined lines, with no separator."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: len(text))
+
+    chunks = summarize.split_text_by_token_budget(
+        "model", "aa\nbb\nc\nd\n", max_chunk_tokens=6
+    )
+
+    assert chunks == ["aa\nbb\n", "c\nd\n"]
+
+
 def test_count_tokens_falls_back_to_heuristic_on_failure(monkeypatch):
     """Token counting failures fall back to a character-based heuristic."""
 
@@ -119,6 +159,36 @@ def test_count_tokens_falls_back_to_heuristic_on_failure(monkeypatch):
     monkeypatch.setattr(summarize.litellm, "token_counter", boom)
 
     assert summarize.count_tokens("mymodel", "12345678") == 2
+
+
+def test_count_tokens_heuristic_uses_integer_division(monkeypatch):
+    """The fallback heuristic truncates instead of returning a float."""
+
+    def boom(**_kwargs):
+        raise RuntimeError("model not recognized")
+
+    monkeypatch.setattr(summarize.litellm, "token_counter", boom)
+
+    result = summarize.count_tokens("mymodel", "x" * 10)
+
+    assert result == 2
+    assert isinstance(result, int)
+
+
+def test_count_tokens_logs_exact_debug_message_on_failure(monkeypatch, caplog):
+    """The fallback path logs the model name and the triggering exception."""
+
+    def boom(**_kwargs):
+        raise RuntimeError("model not recognized")
+
+    monkeypatch.setattr(summarize.litellm, "token_counter", boom)
+
+    with caplog.at_level("DEBUG", logger=summarize.__name__):
+        summarize.count_tokens("mymodel", "12345678")
+
+    assert [record.getMessage() for record in caplog.records] == [
+        "Unable to count tokens for model 'mymodel': model not recognized"
+    ]
 
 
 def test_count_tokens_normalizes_successful_result(monkeypatch):
@@ -165,6 +235,20 @@ def test_file_path_and_change_stat_are_derived_from_headers():
     )
 
 
+def test_file_path_from_section_uses_the_first_separator_match():
+    """When ``" b/"`` recurs, the path is split on its first occurrence."""
+    header = "diff --git a/old.py b/new b/file.py\n+one\n"
+
+    assert summarize.file_path_from_section(header) == "new b/file.py"
+
+
+def test_file_path_from_section_only_strips_quote_characters():
+    """Trimming the post-image path strips quotes only, not arbitrary letters."""
+    header = "diff --git a/old.py b/Xdata.py\n+one\n"
+
+    assert summarize.file_path_from_section(header) == "Xdata.py"
+
+
 def test_file_change_stat_detects_deleted_and_binary_files():
     """Deleted and binary diff sections are reported with the right status."""
     deleted = "diff --git a/old.py b/old.py\ndeleted file mode 100644\n-one\n"
@@ -174,6 +258,22 @@ def test_file_change_stat_detects_deleted_and_binary_files():
 
     assert summarize.file_change_stat("old.py", deleted) == "- old.py (deleted, +0/-1)"
     assert summarize.file_change_stat("img.png", binary) == "- img.png (binary, +0/-0)"
+
+
+def test_file_change_stat_accumulates_multiple_added_and_removed_lines():
+    """Added and removed counts accumulate across lines, not just the last one."""
+    section = (
+        "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n+one\n+two\n-old1\n-old2\n"
+    )
+
+    assert summarize.file_change_stat("a.py", section) == "- a.py (modified, +2/-2)"
+
+
+def test_file_change_stat_uses_unknown_path_placeholder_when_path_is_empty():
+    """An empty path falls back to the exact ``unknown path`` placeholder."""
+    section = "diff --git a b\n+one\n"
+
+    assert summarize.file_change_stat("", section) == "- unknown path (modified, +1/-0)"
 
 
 def test_is_low_signal_path_matches_generated_suffixes():
@@ -203,6 +303,19 @@ def test_build_skeleton_truncates_very_wide_change_sets():
     assert len(skeleton.splitlines()) == 201
     assert skeleton.splitlines()[0].startswith("- src/mod0.py ")
     assert skeleton.splitlines()[-2].startswith("- src/mod199.py ")
+
+
+def test_build_skeleton_keeps_the_exact_cap_untruncated():
+    """A change set exactly at the skeleton cap is not truncated."""
+    count = summarize.MAX_SKELETON_FILES
+    sections = [
+        (f"src/mod{index}.py", _diff(f"src/mod{index}.py")) for index in range(count)
+    ]
+
+    skeleton = summarize.build_skeleton(sections)
+
+    assert len(skeleton.splitlines()) == count
+    assert "more file(s)" not in skeleton
 
 
 def test_plan_chunks_groups_small_files_into_one_request(monkeypatch):
@@ -248,6 +361,31 @@ def test_plan_chunks_uses_one_token_minimum_for_default_budget(monkeypatch):
     assert observed_budgets == [1, 1]
 
 
+def test_plan_chunks_divides_the_prompt_limit_with_integer_division(monkeypatch):
+    """The derived chunk budget is an integer floor division, not a float."""
+    observed_models = []
+
+    def get_prompt_token_limit(model):
+        observed_models.append(model)
+        return 10
+
+    monkeypatch.setattr(summarize, "get_prompt_token_limit", get_prompt_token_limit)
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 2)
+    observed_budgets = []
+
+    def split(_model, text, budget):
+        observed_budgets.append(budget)
+        return [text]
+
+    monkeypatch.setattr(summarize, "split_text_by_token_budget", split)
+
+    summarize.plan_chunks("small-model", [("a.py", "a" * 11)])
+
+    assert observed_models == ["small-model"]
+    assert observed_budgets == [1]
+    assert isinstance(observed_budgets[0], int)
+
+
 def test_plan_chunks_respects_the_file_count_cap(monkeypatch):
     """Grouping stops at ``MAX_FILES_PER_CHUNK`` even for tiny diffs."""
     monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 1)
@@ -272,6 +410,115 @@ def test_plan_chunks_starts_a_new_chunk_when_the_budget_is_reached(monkeypatch):
     chunks = summarize.plan_chunks("mymodel", sections, chunk_tokens=10)
 
     assert [chunk.paths for chunk in chunks] == [("a.py",), ("b.py",)]
+
+
+def test_plan_chunks_starts_batch_total_at_zero(monkeypatch):
+    """The running batch total starts at zero, not with a phantom token."""
+    sizes = {"f1.py": 5, "f2.py": 2}
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: sizes[text])
+
+    chunks = summarize.plan_chunks(
+        "mymodel", [("f1.py", "f1.py"), ("f2.py", "f2.py")], chunk_tokens=7
+    )
+
+    assert len(chunks) == 1
+    assert chunks[0].paths == ("f1.py", "f2.py")
+
+
+def test_plan_chunks_resets_batch_total_after_a_flush(monkeypatch):
+    """The running batch total resets to zero, not one, after each flush."""
+    sizes = {"a.py": 6, "b.py": 6, "c.py": 2, "d.py": 4}
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: sizes[text])
+
+    sections = [(name, name) for name in sizes]
+    chunks = summarize.plan_chunks("mymodel", sections, chunk_tokens=6)
+
+    assert [chunk.paths for chunk in chunks] == [
+        ("a.py",),
+        ("b.py",),
+        ("c.py", "d.py"),
+    ]
+
+
+def test_plan_chunks_accumulates_batch_total_with_a_running_sum(monkeypatch):
+    """The batch total accumulates across files instead of tracking only the last."""
+    sizes = {"a.py": 4, "b.py": 4, "c.py": 4}
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: sizes[text])
+
+    sections = [(name, name) for name in sizes]
+    chunks = summarize.plan_chunks("mymodel", sections, chunk_tokens=10)
+
+    assert [chunk.paths for chunk in chunks] == [("a.py", "b.py"), ("c.py",)]
+
+
+def test_plan_chunks_treats_an_exact_budget_match_as_not_oversized(monkeypatch):
+    """A file whose token count exactly equals the budget is still batched."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 10)
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("an exact-budget file must not be split")
+
+    monkeypatch.setattr(summarize, "split_text_by_token_budget", fail)
+
+    chunks = summarize.plan_chunks("mymodel", [("a.py", "a.py")], chunk_tokens=10)
+
+    assert [chunk.label for chunk in chunks] == ["a.py"]
+
+
+def test_plan_chunks_flushes_only_once_the_batch_strictly_exceeds_budget(monkeypatch):
+    """A batch exactly at the budget is not flushed before the next file."""
+    sizes = {"a.py": 5, "b.py": 5}
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, text: sizes[text])
+
+    sections = [("a.py", "a.py"), ("b.py", "b.py")]
+    chunks = summarize.plan_chunks("mymodel", sections, chunk_tokens=10)
+
+    assert len(chunks) == 1
+    assert chunks[0].paths == ("a.py", "b.py")
+
+
+def test_plan_chunks_passes_the_model_to_split_oversized_sections(monkeypatch):
+    """The model used for splitting an oversized file is the one passed in."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 100)
+    observed_models = []
+
+    def split(model, text, _budget):
+        observed_models.append(model)
+        return [text]
+
+    monkeypatch.setattr(summarize, "split_text_by_token_budget", split)
+
+    summarize.plan_chunks("custom-model", [("big.py", "xy")], chunk_tokens=10)
+
+    assert observed_models == ["custom-model"]
+
+
+def test_plan_chunks_falls_back_to_unknown_path_for_blank_identifiers(monkeypatch):
+    """A blank path identifier is reported with the exact placeholder text."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 1)
+
+    chunks = summarize.plan_chunks("mymodel", [("", "diff body")], chunk_tokens=10)
+
+    assert chunks[0].label == "unknown path"
+
+
+def test_split_oversized_section_tags_each_part_chunk_with_its_path():
+    """Every part-chunk produced for an oversized file keeps its source path."""
+    chunks = summarize._split_oversized_section(
+        "mymodel", "big.py", "aaaa", chunk_tokens=1
+    )
+
+    assert chunks
+    assert all(chunk.paths == ("big.py",) for chunk in chunks)
+
+
+def test_pack_chunk_labels_a_multi_file_batch_with_its_file_count():
+    """A multi-file batch is labelled with the number of files it contains."""
+    entries = [("a.py", "diff a"), ("b.py", "diff b"), ("c.py", "diff c")]
+
+    chunk = summarize._pack_chunk(entries)
+
+    assert chunk.label == "3 files"
 
 
 def test_plan_chunks_splits_a_file_larger_than_the_budget(monkeypatch):
@@ -464,6 +711,15 @@ def test_format_note_preserves_text_starting_with_bullet_characters():
     )
 
 
+def test_format_note_joins_single_file_lines_with_a_semicolon():
+    """Multiple lines for a single-file note are joined with "; ", not blindly."""
+    chunk = summarize.DiffChunk("a.py", "diff a", "sys", ("a.py",))
+
+    assert summarize._format_note(chunk, "one change\ntwo change") == (
+        "- a.py: one change; two change"
+    )
+
+
 def test_summarize_text_returns_joined_choices(monkeypatch):
     """A summarization request joins the returned choice contents."""
 
@@ -510,6 +766,22 @@ def test_summarize_text_returns_empty_on_failure(monkeypatch):
     monkeypatch.setattr(summarize.litellm, "completion", boom)
 
     assert summarize.summarize_text("mymodel", "system prompt", "content") == ""
+
+
+def test_summarize_text_logs_the_exact_warning_message_on_failure(monkeypatch, caplog):
+    """A provider failure logs the exact warning message with the exception."""
+
+    def boom(**_kwargs):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(summarize.litellm, "completion", boom)
+
+    with caplog.at_level("WARNING", logger=summarize.__name__):
+        summarize.summarize_text("mymodel", "system prompt", "content")
+
+    assert [record.getMessage() for record in caplog.records] == [
+        "Summarization request failed: provider unavailable"
+    ]
 
 
 def test_summarize_text_returns_empty_when_response_has_no_choices(monkeypatch):
@@ -606,6 +878,74 @@ def test_reduce_summaries_stops_after_three_rounds(monkeypatch):
     assert len(summaries) == 3
 
 
+def test_reduce_summaries_divides_the_prompt_limit_with_integer_division(monkeypatch):
+    """The derived chunk budget is an integer floor division, not a float."""
+    monkeypatch.setattr(summarize, "get_prompt_token_limit", lambda _model: 10)
+    token_counts = iter([100, 1])
+    monkeypatch.setattr(summarize, "count_tokens", lambda *_args: next(token_counts))
+    observed_budgets = []
+
+    def split(_model, _text, budget):
+        observed_budgets.append(budget)
+        return ["group"]
+
+    monkeypatch.setattr(summarize, "split_text_by_token_budget", split)
+    monkeypatch.setattr(summarize, "summarize_text", lambda *_args: "reduced")
+
+    summarize.reduce_summaries("small-model", ["notes"])
+
+    assert observed_budgets == [1]
+    assert isinstance(observed_budgets[0], int)
+
+
+def test_reduce_summaries_resolves_the_budget_from_the_passed_model(monkeypatch):
+    """The model used to resolve a default budget is the one passed in."""
+    observed_models = []
+
+    def get_prompt_token_limit(model):
+        observed_models.append(model)
+        return 60
+
+    monkeypatch.setattr(summarize, "get_prompt_token_limit", get_prompt_token_limit)
+    monkeypatch.setattr(summarize, "count_tokens", lambda *_args: 1)
+
+    summarize.reduce_summaries("custom-model", ["- a.py: one"])
+
+    assert observed_models == ["custom-model"]
+
+
+def test_reduce_summaries_threads_the_model_into_each_collaborator(monkeypatch):
+    """The model is forwarded unchanged to the token counter, splitter, and LLM."""
+    count_tokens_models = []
+    split_models = []
+    split_texts = []
+    summarize_text_models = []
+
+    def count_tokens(model, _text):
+        count_tokens_models.append(model)
+        return 11 if len(count_tokens_models) == 1 else 1
+
+    def split(model, text, _budget):
+        split_models.append(model)
+        split_texts.append(text)
+        return [text]
+
+    def fake_summarize_text(model, _system_prompt, _content):
+        summarize_text_models.append(model)
+        return "reduced"
+
+    monkeypatch.setattr(summarize, "count_tokens", count_tokens)
+    monkeypatch.setattr(summarize, "split_text_by_token_budget", split)
+    monkeypatch.setattr(summarize, "summarize_text", fake_summarize_text)
+
+    summarize.reduce_summaries("custom-model", ["oversized notes"], chunk_tokens=10)
+
+    assert count_tokens_models == ["custom-model", "custom-model"]
+    assert split_models == ["custom-model"]
+    assert split_texts == ["oversized notes"]
+    assert summarize_text_models == ["custom-model"]
+
+
 def test_reduce_summaries_keeps_notes_within_budget(monkeypatch):
     """Notes that already fit are returned verbatim, with no extra LLM call."""
     monkeypatch.setattr(summarize, "count_tokens", lambda *_args: 1)
@@ -666,6 +1006,46 @@ def test_reduce_summaries_stops_when_reduce_step_produces_nothing(monkeypatch):
     assert summarize.reduce_summaries(
         "mymodel", summaries, chunk_tokens=10
     ) == "\n".join(summaries)
+
+
+def test_reduce_summaries_logs_the_exact_warning_when_output_is_empty(
+    monkeypatch, caplog
+):
+    """The empty-output bailout logs the exact warning message."""
+    monkeypatch.setattr(summarize, "count_tokens", lambda *_args: 11)
+    monkeypatch.setattr(
+        summarize, "split_text_by_token_budget", lambda _model, text, _budget: [text]
+    )
+    monkeypatch.setattr(summarize, "summarize_text", lambda *_args, **_kwargs: "")
+
+    with caplog.at_level("WARNING", logger=summarize.__name__):
+        summarize.reduce_summaries("mymodel", ["oversized notes"], chunk_tokens=10)
+
+    assert [record.getMessage() for record in caplog.records] == [
+        "Reduce step produced no output; keeping current notes."
+    ]
+
+
+def test_reduce_summaries_joins_reduced_notes_without_a_separator(monkeypatch):
+    """Reduced group summaries are joined with newlines, not a placeholder."""
+    token_counts = iter([11, 1])
+    monkeypatch.setattr(summarize, "count_tokens", lambda *_args: next(token_counts))
+    monkeypatch.setattr(
+        summarize,
+        "split_text_by_token_budget",
+        lambda _model, text, _budget: ["first", "second"],
+    )
+    monkeypatch.setattr(
+        summarize,
+        "summarize_text",
+        lambda _model, _system_prompt, content: f"reduced {content}",
+    )
+
+    result = summarize.reduce_summaries(
+        "mymodel", ["- a.py: one", "- b.py: two"], chunk_tokens=10
+    )
+
+    assert result == "reduced first\nreduced second"
 
 
 def test_low_signal_files_are_reported_without_an_llm_call(monkeypatch):
@@ -734,6 +1114,42 @@ def test_summarize_diff_returns_original_when_no_summaries(monkeypatch, caplog):
     with caplog.at_level("WARNING", logger=summarize.__name__):
         assert summarize.summarize_diff("mymodel", diff) == diff
     assert caplog.messages == ["Summarization chain produced no output; giving up."]
+
+
+def test_summarize_diff_logs_the_exact_completion_debug_message(monkeypatch, caplog):
+    """The completion debug log reports each distinct count, in order."""
+    diff = (
+        "diff --git a/poetry.lock b/poetry.lock\n+lock\n"
+        "diff --git a/src/a.py b/src/a.py\n+1\n"
+        "diff --git a/src/b.py b/src/b.py\n+1\n"
+    )
+    monkeypatch.setattr(summarize, "get_prompt_token_limit", lambda _model: 600)
+    monkeypatch.setattr(summarize, "count_tokens", lambda _model, _text: 1)
+    monkeypatch.setattr(
+        summarize, "map_chunks", lambda _model, _chunks: ["- src/a.py: x"]
+    )
+    monkeypatch.setattr(
+        summarize, "reduce_summaries", lambda _model, notes, _chunk_tokens: "notes!"
+    )
+
+    with caplog.at_level("DEBUG", logger=summarize.__name__):
+        result = summarize.summarize_diff("mymodel", diff)
+
+    assert (
+        result
+        == "Files changed:\n"
+        + summarize.build_skeleton(
+            [
+                ("poetry.lock", "diff --git a/poetry.lock b/poetry.lock\n+lock\n"),
+                ("src/a.py", "diff --git a/src/a.py b/src/a.py\n+1\n"),
+                ("src/b.py", "diff --git a/src/b.py b/src/b.py\n+1\n"),
+            ]
+        )
+        + "\n\nWhat changed:\nnotes!"
+    )
+    assert [record.getMessage() for record in caplog.records] == [
+        f"Summarized 3 file(s) (2 analyzed) in 1 chunk(s): {len(diff)} -> 6 chars"
+    ]
 
 
 def test_summarize_diff_keeps_one_token_minimum_for_tiny_budgets(monkeypatch):
