@@ -11,6 +11,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.3.7] - 2026-10-16
+
+### Changed
+
+- Expanded Markdown linting to ensure consistent formatting and lint compliance across all Markdown documentation in the repository, previously only formatted for CHANGELOG.md. [37b77dcc](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/37b77dcc6df99e0bdb4bd79ab4095ff4d82deb42)
+
+## [20.3.6] - 2026-10-16
+
+### Changed
+
+- Streamlined tool management and improved efficiency by replacing execute and web/fetch with the graphify/* tool in agent definitions. [bac54a75](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/bac54a75141801c6b798a9f188b2ed63277c6e3b)
+
+## [20.3.5] - 2026-10-16
+
+### Changed
+
+- Updated GitHub Actions workflows to utilize the latest version of the `gh-workflows` repository, specifically version 9.4.4, with corresponding updates to the `aiohttp` library and the `ruff` pre-commit hook. [ef48eb13](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/ef48eb13700587e6e20342b80433797bf894ba56)
+
+## [20.3.4] - 2026-10-15
+
+### Changed
+
+- Unified the linting process for contributors by enabling the 'make lint' target, which encompasses Ruff and all relevant lint checks, replacing direct invocation of Ruff and promoting a consistent and unified workflow aligned with the project's tooling. [5ca73bb3](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/5ca73bb3ed633baa9d168f58a79560ddab5eb424)
+
+## [20.3.3] - 2026-10-15
+
+### Changed
+
+- Clarified the delegation logic for test handlers in the FakeClient.system_one method, and enabled pylint to ignore excessive line counts in large test files, improving test clarity and adherence to Python idioms without introducing breaking behavior or API changes. [a29da218](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/a29da218e72cadbd99740cad3e86f31614ce467a)
+
+## [20.3.2] - 2026-10-15
+
+### Changed
+
+- Stabilized code coverage and mutation score by introducing targeted unit tests across the test suite, resulting in a 15.59% improvement in mutation score from 82.8% to 98.47%. [e85783a7](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e85783a70d7615f811ccd443614ef954eaa2c4fc)
+
+## [20.3.1] - 2026-10-15
+
+### Changed
+
+- Simplified test setup and teardown by extracting shared helpers, reducing duplicated code and test duplication from 71 to 37 lines without introducing any behavior changes. [c4bcb411](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c4bcb4116fdee7abc10503017625a1f4af49debd)
+
+## [20.3.0] - 2026-10-15
+
+### Added
+
+- Enabled structured, role-based codebase and documentation review workflows by introducing seven specialized reviewer agent roles with clear expectations and guidelines for reviewers to follow. [9f4276e1](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/9f4276e122fa2513ca21634eb345d10b909ff89e)
+
+## [20.2.0] - 2026-10-15
+
+### Added
+
+- Enabled improved automation for issue management by granting the workflow permission to create or update GitHub issues. [63271b4a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/63271b4af841c07cba0cef100ece5c273af8749e)
+
+## [20.1.0] - 2026-10-12
+
+### Added
+
+- Expanded the CHANGELOG.md file to include detailed release notes for versions 19.9.0 through 20.0.3, providing users and maintainers with an accurate project history and facilitating easier tracking of recent development activity. [e169f374](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/e169f374c3bcc6a84271dd30ff760ae8c59ef765)
+
 ## [20.0.3] - 2026-10-12
 
 ### Changed
