@@ -16,7 +16,7 @@ or clearly report the failure details and blocker.
 ### Style and Formatting
 
 - Format all Python code with `black` and sort imports with `isort` (profile `"black"`).
-- Use `ruff` for linting;
+- Run `make lint` to check linting, including Ruff;
   address every reported issue before finalising a change.
 - Run `make fmt` to apply formatting automatically.
 
