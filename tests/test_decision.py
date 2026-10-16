@@ -34,6 +34,7 @@ def _fake_client_factory(handle_system_one, capture=None):
             return None
 
         def system_one(self, **kwargs):
+            """Delegate to the test-provided handler."""
             return handle_system_one(**kwargs)
 
     return FakeClient

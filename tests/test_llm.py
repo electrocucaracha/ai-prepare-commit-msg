@@ -20,7 +20,7 @@ file handling. The tests access module-internal helpers on purpose.
 """
 
 # Tests access internal helpers and use small helper classes.
-# pylint: disable=protected-access,too-few-public-methods
+# pylint: disable=protected-access,too-few-public-methods,too-many-lines
 
 from types import SimpleNamespace
 
@@ -999,7 +999,7 @@ def test_load_prompt_messages_logs_exact_debug_messages(tmp_path, caplog):
     empty_path.write_text("{}")
 
     with caplog.at_level("DEBUG", logger=llm.__name__):
-        assert llm._load_prompt_messages(empty_path) == []
+        assert not llm._load_prompt_messages(empty_path)
     assert [r.getMessage() for r in caplog.records] == [
         f"No 'messages' key in prompt file {empty_path}; returning empty list"
     ]

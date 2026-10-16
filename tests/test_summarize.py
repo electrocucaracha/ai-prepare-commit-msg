@@ -19,7 +19,7 @@ These tests access module-internal helpers on purpose.
 """
 
 # Tests access internal helpers and use small helper classes.
-# pylint: disable=protected-access,too-few-public-methods
+# pylint: disable=protected-access,too-few-public-methods,too-many-lines
 
 from types import SimpleNamespace
 
