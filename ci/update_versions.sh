@@ -14,6 +14,9 @@ if [[ ${DEBUG:-false} == "true" ]]; then
     set -o xtrace
 fi
 
+REPO="https://github.com/electrocucaracha/gh-workflows/tree/main/.github/agents"
+RAW="https://raw.githubusercontent.com/electrocucaracha/gh-workflows/main/.github/agents"
+
 trap "make fmt" EXIT
 
 if ! command -v uv >/dev/null; then
@@ -22,3 +25,13 @@ fi
 uv sync --upgrade
 uvx pre-commit autoupdate
 uv run --no-project --with git+https://github.com/electrocucaracha/gh-updater.git gh-updater .
+
+curl -fsSL "$REPO" |
+    grep -oE 'href="/electrocucaracha/gh-workflows/blob/main/\.github/agents/[^"]+"' |
+    cut -d '"' -f 2 |
+    sed 's|.*/||' |
+    sort -u |
+    while IFS= read -r file; do
+        curl -fsSL "$RAW/$file" -o ".github/agents/$file"
+        echo "Updated: $file"
+    done
