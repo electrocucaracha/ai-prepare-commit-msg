@@ -76,6 +76,9 @@ def test__extract_choice_content_various_shapes():
     # message attribute present but None -> empty string
     assert llm._extract_choice_content(_Choice(None)) == ""
 
+    # message object with an empty-string .content stays empty, not a placeholder
+    assert llm._extract_choice_content(_Choice(_Msg(""))) == ""
+
 
 @pytest.mark.parametrize("tokens_before", [0, -1])
 def test_compression_stats_savings_ratio_is_zero_without_baseline(tokens_before):
@@ -84,6 +87,30 @@ def test_compression_stats_savings_ratio_is_zero_without_baseline(tokens_before)
 
     assert stats.tokens_before == tokens_before
     assert stats.savings_ratio == 0.0
+
+
+def test_compression_stats_record_accumulates_across_calls():
+    """Each ``record`` call adds to, rather than replaces, the running totals."""
+    stats = llm.CompressionStats()
+
+    stats.record(1_000, 750)
+    assert stats.requests == 1
+    assert stats.tokens_before == 1_000
+    assert stats.tokens_after == 750
+
+    stats.record(500, 300)
+    assert stats.requests == 2
+    assert stats.tokens_before == 1_500
+    assert stats.tokens_after == 1_050
+
+
+def test_compression_stats_format_summary_without_requests():
+    """The summary reports unavailable metrics verbatim when nothing was recorded."""
+    stats = llm.CompressionStats()
+
+    assert stats.format_summary() == (
+        "Headroom: prompt compression unavailable; no token metrics collected."
+    )
 
 
 def test_get_commit_msg_uses_litellm_and_joins_choices(monkeypatch):
@@ -202,8 +229,91 @@ def test_get_commit_msg_untyped_instructs_model_after_default_prompt(
         {"role": "user", "content": "template"},
         {"role": "user", "content": "diff"},
     ]
-    assert "Loaded 2 prompt messages from prompt.yml" in caplog.text
+    debug_messages = [r.getMessage() for r in caplog.records if r.levelname == "DEBUG"]
+    assert debug_messages.count("Loaded 2 prompt messages from prompt.yml") == 2
     assert prompt_paths == ["prompt.yml", "prompt.yml"]
+
+
+def test_resolve_messages_defaults_to_typed_instruction(monkeypatch):
+    """Omitting ``untyped`` must behave exactly like passing ``untyped=False``."""
+    monkeypatch.setattr(llm, "_load_prompt_messages", lambda _path: [])
+    messages = llm._resolve_messages("model", "diff", "unused.yml")
+    typed_messages = llm._resolve_messages("model", "diff", "unused.yml", untyped=False)
+
+    assert messages == typed_messages
+    assert messages[0] == {
+        "role": "system",
+        "content": llm.CONVENTIONAL_COMMIT_INSTRUCTION,
+    }
+
+
+def test_resolve_messages_threads_model_and_limit_through_each_collaborator(
+    monkeypatch,
+):
+    """Every collaborator call receives the exact model/messages/limit expected."""
+    monkeypatch.setattr(llm, "_load_prompt_messages", lambda _path: [])
+    compress_calls = []
+    estimate_calls = []
+
+    monkeypatch.setattr(llm, "_get_prompt_token_limit", lambda _model: 100)
+
+    def compress(model, messages, prompt_token_limit):
+        compress_calls.append((model, [dict(m) for m in messages], prompt_token_limit))
+        return messages
+
+    # First estimate is oversized to trigger the summarization branch, second fits.
+    estimate_results = iter([101, 50])
+
+    def estimate(model, messages):
+        estimate_calls.append((model, [dict(m) for m in messages]))
+        return next(estimate_results)
+
+    summarize_calls = []
+
+    def summarize(model, diff_message, prompt_token_limit):
+        summarize_calls.append((model, diff_message, prompt_token_limit))
+        return "condensed diff"
+
+    monkeypatch.setattr(llm, "_compress_messages", compress)
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", estimate)
+    monkeypatch.setattr(llm, "_summarize_diff", summarize)
+
+    result = llm._resolve_messages("mymodel", "big diff", "unused.yml")
+
+    assert summarize_calls == [("mymodel", "big diff", 100)]
+    assert result[-1] == {"role": "user", "content": "condensed diff"}
+    assert compress_calls == [
+        ("mymodel", compress_calls[0][1], 100),
+        ("mymodel", compress_calls[1][1], 100),
+    ]
+    assert estimate_calls[0][0] == "mymodel"
+    assert estimate_calls[1][0] == "mymodel"
+
+
+def test_resolve_messages_logs_exact_warning_messages(monkeypatch, caplog):
+    """Both oversized-prompt warnings report exact token counts and limits."""
+    monkeypatch.setattr(llm, "_load_prompt_messages", lambda _path: [])
+    monkeypatch.setattr(llm, "_get_prompt_token_limit", lambda _model: 100)
+    monkeypatch.setattr(
+        llm, "_compress_messages", lambda _model, messages, _limit: messages
+    )
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 150)
+    monkeypatch.setattr(llm, "_summarize_diff", lambda *_args: "still big")
+
+    with caplog.at_level("WARNING", logger=llm.__name__):
+        result = llm._resolve_messages("mymodel", "diff", "unused.yml")
+
+    assert result is None
+    assert [r.getMessage() for r in caplog.records] == [
+        (
+            "Estimated prompt token count 150 exceeds safe limit 100; "
+            "attempting summarization chain."
+        ),
+        (
+            "Skipping LLM call: prompt still 150 tokens after summarization, "
+            "exceeding safe limit 100."
+        ),
+    ]
 
 
 def test_get_commit_msg_builds_default_instruction_without_prompt_messages(monkeypatch):
@@ -302,6 +412,13 @@ def test_get_llm_timeout_reads_environment_variable(monkeypatch):
     monkeypatch.setenv("LITELLM_REQUEST_TIMEOUT", " 12.5 ")
 
     assert llm._get_llm_timeout() == 12.5
+
+
+def test_get_llm_timeout_accepts_boundary_value(monkeypatch):
+    """A timeout of exactly one second is a valid, positive timeout."""
+    monkeypatch.setenv("LITELLM_REQUEST_TIMEOUT", "1")
+
+    assert llm._get_llm_timeout() == 1.0
 
 
 def test_get_llm_timeout_rejects_non_numeric_value(monkeypatch):
@@ -472,7 +589,9 @@ def test_get_commit_msg_returns_empty_on_timeout(monkeypatch, caplog):
 
     assert result == ""
     assert observed_timeouts == [4.5]
-    assert "LLM call timed out after 4.5 seconds" in caplog.text
+    assert [r.getMessage() for r in caplog.records] == [
+        "LLM call timed out after 4.5 seconds"
+    ]
 
 
 def test_get_commit_msg_returns_empty_on_generic_provider_error(monkeypatch, caplog):
@@ -491,7 +610,9 @@ def test_get_commit_msg_returns_empty_on_generic_provider_error(monkeypatch, cap
         result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
 
     assert result == ""
-    assert "LLM call failed: provider unavailable" in caplog.text
+    assert [r.getMessage() for r in caplog.records] == [
+        "LLM call failed: provider unavailable"
+    ]
 
 
 def test_get_commit_msg_returns_warning_for_oversized_provider_error(
@@ -512,10 +633,62 @@ def test_get_commit_msg_returns_warning_for_oversized_provider_error(
         result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
 
     assert result == llm.OVERSIZED_DIFF_WARNING
-    assert (
-        "Skipping LLM call after oversized prompt rejection: prompt token count "
-        "of 287975 exceeds the limit of 128000"
-    ) in caplog.text
+    assert [r.getMessage() for r in caplog.records] == [
+        (
+            "Skipping LLM call after oversized prompt rejection: prompt token count "
+            "of 287975 exceeds the limit of 128000"
+        )
+    ]
+
+
+def test_get_commit_msg_logs_exact_debug_messages(monkeypatch, caplog):
+    """The sent-prompt and generated-message debug logs include exact values."""
+    monkeypatch.setattr(
+        llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
+    )
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 42)
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda **_kwargs: _Response([_Choice(_Msg("generated text"))]),
+    )
+
+    with caplog.at_level("DEBUG", logger=llm.__name__):
+        result = llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml")
+
+    assert result == "generated text"
+    debug_messages = [r.getMessage() for r in caplog.records if r.levelname == "DEBUG"]
+    assert "Sent prompt to model 'mymodel'; awaiting response" in debug_messages
+    assert "Generated commit message length=14" in debug_messages
+
+
+def test_get_commit_msg_uses_single_worker_thread_pool(monkeypatch):
+    """The LLM call always runs in a thread pool with exactly one worker."""
+    monkeypatch.setattr(
+        llm, "_load_prompt_messages", lambda p: [{"role": "system", "content": "x"}]
+    )
+    monkeypatch.setattr(llm, "_estimate_prompt_tokens", lambda *_args: 42)
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda **_kwargs: _Response([_Choice(_Msg("generated"))]),
+    )
+
+    observed_max_workers = []
+    original_executor = llm.concurrent.futures.ThreadPoolExecutor
+
+    # pylint: disable-next=too-few-public-methods
+    class RecordingExecutor(original_executor):
+        """Thread pool executor that records the ``max_workers`` it was built with."""
+
+        def __init__(self, max_workers=None, **kwargs):
+            observed_max_workers.append(max_workers)
+            super().__init__(max_workers=max_workers, **kwargs)
+
+    monkeypatch.setattr(llm.concurrent.futures, "ThreadPoolExecutor", RecordingExecutor)
+
+    assert llm.get_commit_msg("mymodel", "diff-markdown", "prompt.yml") == "generated"
+    assert observed_max_workers == [1]
 
 
 def test_compress_messages_records_savings(monkeypatch):
@@ -556,6 +729,76 @@ def test_compress_messages_records_savings(monkeypatch):
     }
 
 
+def test_compress_messages_logs_exact_success_message(monkeypatch, caplog):
+    """The debug log reports before/after token counts and applied transforms."""
+    compressed_result = SimpleNamespace(
+        messages=[{"role": "system", "content": "x"}],
+        tokens_before=1000,
+        tokens_after=600,
+        transforms_applied=["router:diff:0.6"],
+    )
+
+    llm.get_compression_stats().reset()
+    monkeypatch.setattr(llm, "headroom_compress", lambda **_kwargs: compressed_result)
+
+    messages = [{"role": "user", "content": "diff"}]
+
+    with caplog.at_level("DEBUG", logger=llm.__name__):
+        llm._compress_messages("mymodel", messages, 7_000)
+
+    debug_records = [r for r in caplog.records if r.levelname == "DEBUG"]
+    assert [r.getMessage() for r in debug_records] == [
+        (
+            "Headroom compressed the prompt from 1000 to 600 tokens using "
+            "['router:diff:0.6']"
+        )
+    ]
+
+
+def test_compress_messages_resolves_token_limit_from_model(monkeypatch):
+    """When no explicit limit is given, the model's own limit is resolved."""
+    compressed_result = SimpleNamespace(
+        messages=[{"role": "system", "content": "x"}],
+        tokens_before=100,
+        tokens_after=80,
+        transforms_applied=[],
+    )
+    observed_limits = []
+
+    def compress(**kwargs):
+        observed_limits.append(kwargs["model_limit"])
+        return compressed_result
+
+    llm.get_compression_stats().reset()
+    monkeypatch.setattr(llm, "headroom_compress", compress)
+    monkeypatch.setattr(llm, "_get_prompt_token_limit", lambda model: 1234)
+
+    llm._compress_messages("mymodel", [{"role": "user", "content": "diff"}])
+
+    assert observed_limits == [1234]
+
+
+def test_compress_messages_resolves_the_limit_using_the_given_model(monkeypatch):
+    """The model passed to ``_compress_messages`` is forwarded verbatim."""
+    observed_models = []
+
+    def get_prompt_token_limit(model):
+        observed_models.append(model)
+        return 1234
+
+    llm.get_compression_stats().reset()
+    monkeypatch.setattr(
+        llm,
+        "headroom_compress",
+        lambda **_kwargs: SimpleNamespace(tokens_before=0, tokens_after=0),
+    )
+    monkeypatch.setattr(llm, "_get_prompt_token_limit", get_prompt_token_limit)
+
+    llm._compress_messages("custom-model", [{"role": "user", "content": "diff"}])
+
+    assert observed_models == ["custom-model"]
+
+
 def test_compress_messages_when_headroom_unavailable(monkeypatch, caplog):
     """Prompt messages pass through untouched when Headroom is missing."""
     llm.get_compression_stats().reset()
@@ -566,7 +809,9 @@ def test_compress_messages_when_headroom_unavailable(monkeypatch, caplog):
     with caplog.at_level("DEBUG", logger=llm.__name__):
         assert llm._compress_messages("mymodel", messages) == messages
     assert llm.get_compression_stats().requests == 0
-    assert "Headroom is not installed; sending the prompt uncompressed." in caplog.text
+    assert [r.getMessage() for r in caplog.records] == [
+        "Headroom is not installed; sending the prompt uncompressed."
+    ]
 
 
 def test_compress_messages_falls_back_when_headroom_raises(monkeypatch, caplog):
@@ -583,11 +828,15 @@ def test_compress_messages_falls_back_when_headroom_raises(monkeypatch, caplog):
     with caplog.at_level("WARNING", logger=llm.__name__):
         assert llm._compress_messages("mymodel", messages) == messages
     assert llm.get_compression_stats().requests == 0
-    assert "Headroom compression failed; using original prompt: " in caplog.text
-    assert "compression backend unavailable" in caplog.text
+    assert [r.getMessage() for r in caplog.records] == [
+        (
+            "Headroom compression failed; using original prompt: "
+            "compression backend unavailable"
+        )
+    ]
 
 
-def test_compress_messages_ignores_zero_token_baseline(monkeypatch):
+def test_compress_messages_ignores_zero_token_baseline(monkeypatch, caplog):
     """Headroom results with a non-positive token baseline are discarded."""
     compressed_result = SimpleNamespace(
         messages=[{"role": "system", "content": "compressed"}],
@@ -601,8 +850,30 @@ def test_compress_messages_ignores_zero_token_baseline(monkeypatch):
 
     messages = [{"role": "user", "content": "diff"}]
 
-    assert llm._compress_messages("mymodel", messages) == messages
+    with caplog.at_level("DEBUG", logger=llm.__name__):
+        assert llm._compress_messages("mymodel", messages) == messages
     assert llm.get_compression_stats().requests == 0
+    assert [r.getMessage() for r in caplog.records] == [
+        "Headroom reported no token counts; using original prompt."
+    ]
+
+
+def test_compress_messages_accepts_a_tokens_before_boundary_value(monkeypatch):
+    """A ``tokens_before`` of exactly one is treated as a valid, positive count."""
+    compressed_result = SimpleNamespace(
+        messages=[{"role": "system", "content": "compressed"}],
+        tokens_before=1,
+        tokens_after=1,
+        transforms_applied=[],
+    )
+
+    llm.get_compression_stats().reset()
+    monkeypatch.setattr(llm, "headroom_compress", lambda **_kwargs: compressed_result)
+
+    messages = [{"role": "user", "content": "diff"}]
+
+    assert llm._compress_messages("mymodel", messages) == compressed_result.messages
+    assert llm.get_compression_stats().requests == 1
 
 
 def test_estimate_prompt_tokens_returns_int_on_success(monkeypatch):
@@ -623,7 +894,7 @@ def test_estimate_prompt_tokens_returns_int_on_success(monkeypatch):
     assert observed == {"model": "mymodel", "messages": messages}
 
 
-def test_estimate_prompt_tokens_returns_none_on_failure(monkeypatch):
+def test_estimate_prompt_tokens_returns_none_on_failure(monkeypatch, caplog):
     """Token estimation failures degrade to ``None`` instead of raising."""
 
     def boom(**_kwargs):
@@ -631,10 +902,15 @@ def test_estimate_prompt_tokens_returns_none_on_failure(monkeypatch):
 
     monkeypatch.setattr(llm.litellm, "token_counter", boom)
 
-    assert (
-        llm._estimate_prompt_tokens("mymodel", [{"role": "user", "content": "x"}])
-        is None
-    )
+    with caplog.at_level("DEBUG", logger=llm.__name__):
+        result = llm._estimate_prompt_tokens(
+            "mymodel", [{"role": "user", "content": "x"}]
+        )
+
+    assert result is None
+    assert [r.getMessage() for r in caplog.records] == [
+        "Unable to estimate prompt tokens for model 'mymodel': model not recognized"
+    ]
 
 
 def test__load_prompt_messages_file_handling(tmp_path, monkeypatch):
@@ -660,8 +936,12 @@ def test__load_prompt_messages_file_handling(tmp_path, monkeypatch):
     with pytest.raises(FileNotFoundError, match="not found or not a file"):
         llm._load_prompt_messages(tmp_path)
 
-    # top-level not a mapping -> TypeError
-    assert_invalid_prompt("bad.yml", "- not: a mapping", "mapping at the top level")
+    # top-level not a mapping -> TypeError, with the exact message
+    bad_path = tmp_path / "bad.yml"
+    bad_path.write_text("- not: a mapping")
+    with pytest.raises(TypeError) as error:
+        llm._load_prompt_messages(bad_path)
+    assert str(error.value) == "Prompt file must contain a mapping at the top level"
 
     assert_invalid_prompt("empty-file.yml", "", "mapping at the top level")
 
@@ -672,8 +952,12 @@ def test__load_prompt_messages_file_handling(tmp_path, monkeypatch):
     (tmp_path / "empty-messages.yml").write_text("messages: []")
     assert not llm._load_prompt_messages(tmp_path / "empty-messages.yml")
 
-    # messages not a list -> TypeError
-    assert_invalid_prompt("notalist.yml", "messages: yes", "'messages' must be a list")
+    # messages not a list -> TypeError, with the exact message
+    notalist_path = tmp_path / "notalist.yml"
+    notalist_path.write_text("messages: yes")
+    with pytest.raises(TypeError) as error:
+        llm._load_prompt_messages(notalist_path)
+    assert str(error.value) == "'messages' must be a list in the prompt file"
 
     # message item not a mapping -> TypeError
     assert_invalid_prompt(
@@ -707,6 +991,28 @@ def test__load_prompt_messages_file_handling(tmp_path, monkeypatch):
         {"role": "system", "content": "hi"}
     ]
     assert encodings and set(encodings) == {"utf-8"}
+
+
+def test_load_prompt_messages_logs_exact_debug_messages(tmp_path, caplog):
+    """The debug logs record the exact message count and source path."""
+    empty_path = tmp_path / "empty.yml"
+    empty_path.write_text("{}")
+
+    with caplog.at_level("DEBUG", logger=llm.__name__):
+        assert llm._load_prompt_messages(empty_path) == []
+    assert [r.getMessage() for r in caplog.records] == [
+        f"No 'messages' key in prompt file {empty_path}; returning empty list"
+    ]
+
+    caplog.clear()
+    good_path = tmp_path / "good.yml"
+    good_path.write_text("messages:\n  - role: system\n    content: hi")
+
+    with caplog.at_level("DEBUG", logger=llm.__name__):
+        llm._load_prompt_messages(good_path)
+    assert [r.getMessage() for r in caplog.records] == [
+        f"Loaded 1 prompt messages from {good_path}"
+    ]
 
 
 class _FakeHandler:
@@ -864,3 +1170,61 @@ def test_load_custom_providers_without_entry_points(monkeypatch):
     llm.load_custom_providers()
 
     assert llm.litellm.custom_provider_map is None
+
+
+def test_load_custom_providers_logs_registration_info(monkeypatch, caplog):
+    """A newly registered provider logs its name and entry-point value."""
+    entry = SimpleNamespace(
+        name="my_provider",
+        value="mypkg.llm:Handler",
+        load=lambda: _FakeHandler,
+    )
+    _patch_entry_points(monkeypatch, [entry])
+
+    with caplog.at_level("INFO", logger=llm.__name__):
+        llm.load_custom_providers()
+
+    assert [r.getMessage() for r in caplog.records] == [
+        "Registered LiteLLM custom provider 'my_provider' from 'mypkg.llm:Handler'"
+    ]
+
+
+def test_load_custom_providers_skips_already_registered_but_continues(
+    monkeypatch, caplog
+):
+    """Skipping an already-registered provider must not stop later entries."""
+    already_registered = SimpleNamespace(
+        name="existing_provider",
+        value="existingpkg.llm:Handler",
+        load=lambda: _FakeHandler,
+    )
+    new_entry = SimpleNamespace(
+        name="new_provider",
+        value="newpkg.llm:Handler",
+        load=lambda: _FakeHandler,
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "custom_provider_map",
+        [{"provider": "existing_provider", "custom_handler": _FakeHandler()}],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        llm,
+        "entry_points",
+        lambda *, group: (
+            [already_registered, new_entry]
+            if group == llm.CUSTOM_PROVIDER_ENTRY_POINT_GROUP
+            else []
+        ),
+    )
+
+    with caplog.at_level("DEBUG", logger=llm.__name__):
+        llm.load_custom_providers()
+
+    debug_messages = [r.getMessage() for r in caplog.records if r.levelname == "DEBUG"]
+    assert debug_messages == [
+        "LiteLLM custom provider 'existing_provider' is already registered; skipping"
+    ]
+    providers = [item["provider"] for item in llm.litellm.custom_provider_map]
+    assert providers == ["existing_provider", "new_provider"]

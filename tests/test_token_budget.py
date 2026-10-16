@@ -49,6 +49,24 @@ def test_get_prompt_token_limit_uses_conservative_fallback(monkeypatch):
     assert token_budget.get_prompt_token_limit("custom/model") == 7_168
 
 
+def test_get_prompt_token_limit_logs_resolution_failure(monkeypatch, caplog):
+    """The debug log records both the offending model and the raised error."""
+
+    def fail(**_kwargs):
+        raise RuntimeError("model is not mapped")
+
+    monkeypatch.setattr(token_budget.litellm, "get_model_info", fail)
+
+    with caplog.at_level("DEBUG", logger=token_budget.logger.name):
+        token_budget.get_prompt_token_limit("custom/model")
+
+    assert len(caplog.records) == 1
+    record = caplog.records[0]
+    assert record.getMessage() == (
+        "Unable to resolve context window for model 'custom/model': model is not mapped"
+    )
+
+
 @pytest.mark.parametrize(
     "reported_limit",
     [None, True, False, 0, -1, 16.0, "16384"],
