@@ -39,8 +39,8 @@ fmt: cleanup
 	shfmt -l -w -s -i 4 .
 	command -v yamlfmt > /dev/null || curl -s "https://i.jpillora.com/google/yamlfmt!!" | bash
 	yamlfmt -dstar **/*.{yaml,yml}
-	npx prettier . --write
-	npx markdownlint-cli2 --fix .
+	npx -y prettier . --write
+	npx -y markdownlint-cli2 --fix .
 	command -v uvx > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uvx tox -e fmt
 
