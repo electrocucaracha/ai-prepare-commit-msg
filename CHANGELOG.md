@@ -11,6 +11,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.6.1] - 2026-10-25
+
+### Changed
+
+- Optimized project compatibility with features or modules that depend on file-based locking by requiring filelock as a dependency with a minimum version of 4.2.1. [4d31d904](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/4d31d9040891c2c96af0b4c1d578a01032d54ed6)
+
+## [20.6.0] - 2026-10-25
+
+### Added
+
+- Enabled consistent runtime environment for the prepare-commit hook by explicitly specifying Python 3.11. [509a81b9](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/509a81b912e932a7f6f2e89ec3260bb9a5980c50)
+
+## [20.5.3] - 2026-10-25
+
+### Changed
+
+- Optimized the project's compatibility by requiring Python 3.11 or higher, ensuring the project remains compatible with the latest Python versions. [5a641a98](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/5a641a98a070e68fc419bb2e926374e841c3fa4a)
+
+## [20.5.2] - 2026-10-25
+
+### Changed
+
+- Enabled automated formatting during the fmt make target, allowing these tools to run automatically without user interaction, thereby improving CI and developer workflows with consistent, non-interactive formatting. [054fce30](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/054fce30a9ac49a58ffeac7d97e5f1e49607d35f)
+
+## [20.5.1] - 2026-10-25
+
+### Changed
+
+- Modernized agent formatting and CI dependencies to enhance maintenance and tooling consistency across the project through improved copypaste detection, upgraded workflow reliability, and enhanced security. [ea9b97e5](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/ea9b97e59dd7d2fca5e9baeb5afe815479b8c47d)
+
+## [20.5.0] - 2026-10-25
+
+### Added
+
+- Enabled machine learning model inference through ONNX by adding onnxruntime and its transitive dependencies, including flatbuffers, numpy, and protobuf, to the project's dependencies and lockfile. [cf92877c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/cf92877c395a2cd029721e9f813d954c76df983d)
+
+## [20.4.0] - 2026-10-16
+
+### Added
+
+- Expanded release notes for versions 20.1.0 through 20.3.7 were documented in the CHANGELOG.md file, detailing enhancements to Markdown linting, tool management, GitHub Actions workflows, unified linting, reviewer agent roles, and automation permissions. [33c064ef](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/33c064efaf5e15447ca59b2e60181de9f353b0f6)
+
 ## [20.3.7] - 2026-10-16
 
 ### Changed
