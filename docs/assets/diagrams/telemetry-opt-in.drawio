@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0">
+  <diagram name="Telemetry opt-in">
+    <mxGraphModel dx="960" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="960" pageHeight="850" math="0" shadow="0" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="Environment-only opt-in" style="text;html=1;align=center;verticalAlign=middle;fontSize=24;fontStyle=1;fontColor=#202020;" vertex="1" parent="1"><mxGeometry x="100" y="10" width="760" height="40" as="geometry" /></mxCell>
+        <mxCell id="3" value="Your shell environment&#xa;Existing model and gateway exports&#xa;+ optional telemetry exports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;spacing=10;" vertex="1" parent="1"><mxGeometry x="270" y="75" width="420" height="95" as="geometry" /></mxCell>
+        <mxCell id="4" value="git commit&#xa;Inherits exported variables" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;spacing=10;" vertex="1" parent="1"><mxGeometry x="320" y="220" width="320" height="70" as="geometry" /></mxCell>
+        <mxCell id="5" value="pre-commit&#xa;Same hook id and stages&#xa;No entry or dependency overrides" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;spacing=10;" vertex="1" parent="1"><mxGeometry x="270" y="340" width="420" height="95" as="geometry" /></mxCell>
+        <mxCell id="6" value="Telemetry endpoint set,&#xa;non-blank and valid?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;spacing=8;" vertex="1" parent="1"><mxGeometry x="320" y="485" width="320" height="150" as="geometry" /></mxCell>
+        <mxCell id="7" value="Normal hook behavior&#xa;No telemetry initialization&#xa;No telemetry export" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;spacing=12;" vertex="1" parent="1"><mxGeometry x="40" y="730" width="390" height="100" as="geometry" /></mxCell>
+        <mxCell id="8" value="Normal hook behavior + metrics&#xa;Record usage and savings estimates&#xa;Best-effort export at command exit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;spacing=12;" vertex="1" parent="1"><mxGeometry x="530" y="730" width="390" height="100" as="geometry" /></mxCell>
+        <mxCell id="9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#555555;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#555555;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="4" target="5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="11" value="prepare-commit reads the environment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#555555;strokeWidth=2;fontSize=15;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="5" target="6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="12" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#666666;strokeWidth=2;fontSize=18;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="6" target="7"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="235" y="560" /><mxPoint x="235" y="690" /></Array></mxGeometry></mxCell>
+        <mxCell id="13" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#548235;strokeWidth=2;fontSize=18;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="6" target="8"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="725" y="560" /><mxPoint x="725" y="690" /></Array></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

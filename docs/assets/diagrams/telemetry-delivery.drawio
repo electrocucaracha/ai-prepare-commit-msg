@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0">
+  <diagram name="Telemetry delivery">
+    <mxGraphModel dx="960" dy="970" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="960" pageHeight="970" math="0" shadow="0" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="From hook activity to reports" style="text;html=1;align=center;verticalAlign=middle;fontSize=24;fontStyle=1;fontColor=#202020;" vertex="1" parent="1"><mxGeometry x="100" y="10" width="760" height="40" as="geometry" /></mxCell>
+        <mxCell id="3" value="AI commit-message hook&#xa;Aggregate usage, outcomes and tokens&#xa;Calculate cost and time estimates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;spacing=12;" vertex="1" parent="1"><mxGeometry x="260" y="80" width="440" height="110" as="geometry" /></mxCell>
+        <mxCell id="4" value="Rotel receiver&#xa;Configured metrics endpoint&#xa;Example: 127.0.0.1:4318/v1/metrics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;spacing=12;" vertex="1" parent="1"><mxGeometry x="260" y="330" width="440" height="110" as="geometry" /></mxCell>
+        <mxCell id="5" value="Local verification&#xa;Detailed debug output&#xa;blackhole discards the metrics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;spacing=12;" vertex="1" parent="1"><mxGeometry x="40" y="605" width="390" height="110" as="geometry" /></mxCell>
+        <mxCell id="6" value="Ongoing reporting&#xa;Configure an exporter to forward&#xa;metrics instead of discarding them" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;spacing=12;" vertex="1" parent="1"><mxGeometry x="530" y="605" width="390" height="110" as="geometry" /></mxCell>
+        <mxCell id="7" value="Metrics backend&#xa;Accepts delta metrics&#xa;Stores history for reports / dashboards" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;spacingTop=12;spacing=8;" vertex="1" parent="1"><mxGeometry x="530" y="805" width="390" height="150" as="geometry" /></mxCell>
+        <mxCell id="8" value="Content stays out of telemetry&#xa;No commit text, diffs, paths or identities.&#xa;Export failures never change the hook result." style="text;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=16;fontColor=#444444;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="805" width="390" height="110" as="geometry" /></mxCell>
+        <mxCell id="9" value="At command exit: best-effort OTLP/HTTP&#xa;Protobuf POST to /v1/metrics&#xa;One-second exporter timeout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#555555;strokeWidth=2;fontSize=16;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="10" value="Verification setup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#b58b22;strokeWidth=2;fontSize=17;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="4" target="5"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="235" y="385" /><mxPoint x="235" y="565" /></Array></mxGeometry></mxCell>
+        <mxCell id="11" value="Forwarding setup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#548235;strokeWidth=2;fontSize=17;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="4" target="6"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="725" y="385" /><mxPoint x="725" y="565" /></Array></mxGeometry></mxCell>
+        <mxCell id="12" value="Forward metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#555555;strokeWidth=2;fontSize=17;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="6" target="7"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

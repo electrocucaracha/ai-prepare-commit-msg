@@ -14,16 +14,17 @@ cleanup:
 	rm -rf node_modules
 	rm -rf .tox/ .venv/
 
-# Biome has no JS/TS/JSON sources to format in this repo, and the
+# Biome has no JS/TS application sources to lint or format in this repo, and the
 # pre-commit hooks include a local "uv run prepare-commit" hook that the
 # super-linter container can't execute, so both validators are disabled
 # via the overrides below.
 .PHONY: lint
-lint: cleanup
-	sudo -E $(DOCKER_CMD) run --rm -v $$(pwd):/tmp/lint \
+lint:
+	$(DOCKER_CMD) run --rm -v $$(pwd):/tmp/lint \
 	-e RUN_LOCAL=true \
 	-e LINTER_RULES_PATH=/ \
 	-e EDITORCONFIG_FILE_NAME=.editorconfig-checker.json \
+	-e VALIDATE_BIOME_LINT=false \
 	-e VALIDATE_BIOME_FORMAT=false \
 	-e VALIDATE_PRE_COMMIT=false \
 	-e PYTHON_ISORT_CONFIG_FILE=pyproject.toml \
@@ -32,14 +33,14 @@ lint: cleanup
 	ghcr.io/super-linter/super-linter
 
 .PHONY: fmt
-fmt: cleanup
+fmt:
 	command -v textlint > /dev/null && npm list --global --depth=0 textlint-rule-terminology > /dev/null 2>&1 || sudo npm install --global textlint textlint-rule-terminology
 	textlint . --fix
 	command -v shfmt > /dev/null || curl -s "https://i.jpillora.com/mvdan/sh!!?as=shfmt" | bash
 	shfmt -l -w -s -i 4 .
 	command -v yamlfmt > /dev/null || curl -s "https://i.jpillora.com/google/yamlfmt!!" | bash
 	yamlfmt -dstar **/*.{yaml,yml}
-	npx -y prettier . --write
+	npx -y prettier . --write --ignore-path .gitignore
 	npx -y markdownlint-cli2 --fix .
 	command -v uvx > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uvx tox -e fmt

@@ -27,6 +27,95 @@ CLI values take precedence over values supplied by an environment variable.
 | `LITELLM_REQUEST_TIMEOUT`        | Optional LLM request timeout in seconds. Must be a positive number. Defaults to `60`.                      |
 | `AI_PREPARE_COMMIT_AUTO_APPROVE` | Enable automatic approval, which skips the `[Y/n]` confirmation and writes the generated message directly. |
 
+### Optional telemetry
+
+Telemetry is disabled by default.
+See [Track usage and AI savings](../how-to-guides/telemetry.md)
+for receiver setup, hook installation, and delivery verification.
+OpenTelemetry dependencies are included in the standard package installation.
+The existing `ai-prepare-commit` hook needs no additional dependency entries.
+Set `AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT` to enable export:
+
+```bash
+export AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT=http://127.0.0.1:4318/v1/metrics
+```
+
+For a source checkout using `uv`,
+run the hook with the project's locked dependencies:
+
+```bash
+uv run --locked prepare-commit --model "$LITELLM_PROXY_MODEL"
+```
+
+The endpoint must accept binary OTLP/HTTP metrics,
+such as an OpenTelemetry Collector HTTP receiver.
+Use the full metrics URL,
+including `/v1/metrics` when required by the receiver.
+Use HTTPS for remote receivers;
+HTTP is intended for a local collector.
+Embedded credentials, query strings, and fragments are not accepted.
+Unset the endpoint variable to disable telemetry.
+Setting standard `OTEL_EXPORTER_OTLP_ENDPOINT` alone does not enable this feature.
+
+| Variable                                 | Description                                                                                                                               |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT`   | Opt-in OTLP/HTTP metrics URL. No default.                                                                                                 |
+| `AI_PREPARE_COMMIT_MANUAL_SECONDS`       | Estimated manual-writing baseline per written AI suggestion, in seconds. Defaults to `120`. Set to `0` to disable time-savings estimates. |
+| `OTEL_EXPORTER_OTLP_METRICS_HEADERS`     | Optional standard OpenTelemetry authentication headers. Use environment-based credentials, not credentials embedded in the endpoint URL.  |
+| `OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE` | Optional trusted CA certificate file for the receiver. TLS verification remains enabled.                                                  |
+
+Each invocation makes a best-effort export at exit,
+with a one-second exporter timeout and no background export thread.
+Invalid configuration or export failures
+do not change the hook's result.
+Metrics are not persisted locally or queued for a later invocation.
+
+All metric names start with `commit_assistant.`:
+
+| Metric suffix                                                                       | Meaning                                                                                                                     |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `invocations`                                                                       | Hook runs, grouped by outcome, commit type, and approval mode.                                                              |
+| `attempts`, `retries`                                                               | Generation attempts and extra attempts after empty responses.                                                               |
+| `duration`                                                                          | Hook duration in seconds, including in-hook confirmation but excluding telemetry export.                                    |
+| `generation.requests`, `summarization.requests`                                     | AI requests attempted in each stage.                                                                                        |
+| `generation.failures`, `summarization.failures`                                     | Requests that raised provider errors.                                                                                       |
+| `generation.duration`, `summarization.duration`                                     | Total request time per stage per invocation, in seconds. Parallel request times are summed.                                 |
+| `generation.input_tokens`, `generation.output_tokens`                               | Provider-reported tokens used for commit generation.                                                                        |
+| `summarization.input_tokens`, `summarization.output_tokens`                         | Provider-reported tokens used for map-reduce summarization.                                                                 |
+| `compression.tokens_before`, `compression.tokens_after`, `compression.tokens_saved` | Headroom token counts for compressed generation prompts that received a response. Discarded candidate prompts are excluded. |
+| `cost_estimated`                                                                    | Estimated USD cost of all priced generation and summarization responses, including retries and rejected suggestions.        |
+| `cost_priced_requests`                                                              | Responses for which cost estimation was available. Unpriced responses are not assumed free.                                 |
+| `compression.cost_saved_estimated`                                                  | Estimated USD input cost avoided by Headroom compression, using LiteLLM model pricing.                                      |
+| `manual_baseline`                                                                   | Configured manual-writing time for a written AI suggestion, in seconds.                                                     |
+| `time_saved_estimated`                                                              | Manual baseline minus hook duration, in seconds. Can be negative.                                                           |
+
+Counters use delta aggregation so short-lived hook processes can contribute
+to totals in a compatible metrics backend.
+Missing provider usage or model pricing omits the corresponding measurement;
+it does not imply zero consumption or zero cost.
+Compression cost savings are a gross estimate,
+not net savings after summarization costs,
+and do not account for provider-specific cache discounts or negotiated prices.
+Decision-service consumption is not included because it is not reported by this integration.
+
+The only metric attributes are `outcome`, `commit.type`, and `approval`.
+Outcomes are `written`, `rejected`, `no_changes`, `oversized`, or `error`.
+Approval values are `accepted`, `auto`, `rejected`, or `none`.
+Commit types use the supported Conventional Commit types,
+with `unknown` for unrecognized titles.
+No message text, scope, diff, file path, repository identifier, model name,
+user identity, or provider credential is collected.
+The receiver still sees the client's network address
+and any authentication headers you configure.
+
+Time savings are estimates rather than observed developer productivity.
+They are emitted only for written AI suggestions,
+including auto-approved suggestions that can be filtered by approval mode.
+They do not measure subsequent editor changes or review outside the hook.
+An approved message being written does not establish that the Git commit succeeded.
+Use `invocations` to track frequency,
+and group written outcomes by `commit.type` for the generated commit-type distribution.
+
 ### Decision models
 
 Set `TYPESAFE_BASE_URL` to the base URL of a TypeSafe-compatible

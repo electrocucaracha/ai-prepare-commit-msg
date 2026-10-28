@@ -37,6 +37,7 @@ from pathlib import Path
 import litellm
 import yaml
 
+from . import telemetry
 from .summarize import extract_choice_content as _extract_choice_content
 from .summarize import summarize_diff as _summarize_diff
 from .token_budget import get_prompt_token_limit as _get_prompt_token_limit
@@ -199,6 +200,7 @@ def _compress_messages(
 
     Returns the original messages when Headroom is unavailable or fails.
     """
+    telemetry.set_compression(0, 0)
     if headroom_compress is None:
         logger.debug("Headroom is not installed; sending the prompt uncompressed.")
         return list(messages)
@@ -228,6 +230,7 @@ def _compress_messages(
         return list(messages)
 
     _COMPRESSION_STATS.record(result.tokens_before, result.tokens_after)
+    telemetry.set_compression(result.tokens_before, result.tokens_after)
     logger.debug(
         "Headroom compressed the prompt from %d to %d tokens using %s",
         result.tokens_before,
@@ -373,13 +376,15 @@ def get_commit_msg(
         return OVERSIZED_DIFF_WARNING
 
     def call_llm():
-        response = litellm.completion(
-            model=model,
-            messages=messages,
-            max_tokens=1024,
-            drop_params=True,
-            extra_headers=_get_extra_headers(),
-        )
+        with telemetry.request(model, "generation") as record:
+            response = litellm.completion(
+                model=model,
+                messages=messages,
+                max_tokens=1024,
+                drop_params=True,
+                extra_headers=_get_extra_headers(),
+            )
+            record(response)
         logger.debug("Sent prompt to model '%s'; awaiting response", model)
         return response
 

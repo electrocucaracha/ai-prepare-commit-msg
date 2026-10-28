@@ -14,3 +14,4 @@ see [How to install](how-to-install.md) if you have not.
 | [How to uninstall](how-to-uninstall.md)                         | Remove the hook from a repository                    |
 | [Choose commit types with a decision model](decision-models.md) | Select a Conventional Commit type with Jev or Ollaya |
 | [Add a custom LLM provider](custom-providers.md)                | Route model calls through your own backend           |
+| [Track usage and AI savings](telemetry.md)                      | Export telemetry and interpret usage and savings     |

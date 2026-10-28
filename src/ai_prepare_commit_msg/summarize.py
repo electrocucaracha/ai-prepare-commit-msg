@@ -39,6 +39,7 @@ from typing import Any
 
 import litellm
 
+from . import telemetry
 from .token_budget import get_prompt_token_limit
 
 logger = logging.getLogger(__name__)
@@ -404,15 +405,17 @@ def summarize_text(
     # Summarization is a best-effort compression step and must never raise.
     # pylint: disable=broad-exception-caught
     try:
-        response = litellm.completion(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": content},
-            ],
-            max_tokens=max_tokens,
-            drop_params=True,
-        )
+        with telemetry.request(model, "summarization") as record:
+            response = litellm.completion(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": content},
+                ],
+                max_tokens=max_tokens,
+                drop_params=True,
+            )
+            record(response)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Summarization request failed: %s", exc)
         return ""

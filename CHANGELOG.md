@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Streamlined tool management and improved efficiency by replacing execute and web/fetch with the graphify/* tool in agent definitions. [bac54a75](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/bac54a75141801c6b798a9f188b2ed63277c6e3b)
+- Streamlined tool management and improved efficiency by replacing execute and web/fetch with the graphify/\* tool in agent definitions. [bac54a75](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/bac54a75141801c6b798a9f188b2ed63277c6e3b)
 
 ## [20.3.5] - 2026-10-16
 

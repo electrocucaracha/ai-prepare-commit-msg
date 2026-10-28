@@ -11,6 +11,8 @@ dependencies = [
     "typesafe-sdk>=0.7.1",
     "onnxruntime>=1.24.0",
     "filelock>=4.2.1",
+    "opentelemetry-sdk>=1.30,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.30,<2",
 ]
 
 [build-system]
@@ -122,6 +124,7 @@ on_dependency_change = "rerun"
 
 [tool.tox.env.fmt]
 description = "Format the codebase"
+package = "skip"
 dependency_groups = [
     "fmt",
 ]

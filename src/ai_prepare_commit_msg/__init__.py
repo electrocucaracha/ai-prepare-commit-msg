@@ -36,7 +36,7 @@ from typing import TextIO
 
 import click
 
-from ai_prepare_commit_msg import decision, git, llm
+from ai_prepare_commit_msg import decision, git, llm, telemetry
 from ai_prepare_commit_msg.llm import get_commit_msg
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,8 @@ def _prompt_on_stream(stream: TextIO, commit_msg: str) -> bool:
         stream.write("Please answer 'y' or 'n'.\n")
 
 
+# Click injects option values as positional args for this command callback.
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 @click.command()
 @click.option(
     "--model",
@@ -135,8 +137,7 @@ def _prompt_on_stream(stream: TextIO, commit_msg: str) -> bool:
     help="Override the decision model (default: jev-latest or laya).",
 )
 @click.argument("files", nargs=-1, type=click.UNPROCESSED)
-# Click injects option values as positional args for this command callback.
-# pylint: disable=too-many-arguments,too-many-positional-arguments
+@telemetry.instrument_cli
 def cli(
     model: str,
     prompt_file: str,
@@ -177,6 +178,7 @@ def cli(
     diff_message = repo.get_diff_message()
 
     if not diff_message:
+        telemetry.set_outcome("no_changes")
         logger.debug("No staged changes detected; skipping commit message generation.")
         return
 
@@ -185,6 +187,7 @@ def cli(
     prompt_path = Path(__file__).parent / prompt_file
     commit_msg = ""
     for attempt in range(1, retry + 1):
+        telemetry.record_attempt()
         if decision_url:
             commit_msg = get_commit_msg(
                 model, diff_message, str(prompt_path), untyped=True
@@ -223,7 +226,13 @@ def cli(
     click.echo(llm.get_compression_stats().format_summary(), err=True)
 
     if not auto_approve and not _confirm_generated_message(commit_msg):
+        telemetry.set_outcome("rejected", commit_msg, "rejected")
         raise click.ClickException("Commit message not approved; aborting commit.")
 
     repo.write_commit_msg(commit_msg)
+    telemetry.set_outcome(
+        "oversized" if commit_msg == llm.OVERSIZED_DIFF_WARNING else "written",
+        commit_msg,
+        "auto" if auto_approve else "accepted",
+    )
     logger.info("Commit message written successfully.")
