@@ -19,7 +19,7 @@ cleanup:
 # super-linter container can't execute, so both validators are disabled
 # via the overrides below.
 .PHONY: lint
-lint:
+lint: cleanup
 	$(DOCKER_CMD) run --rm -v $$(pwd):/tmp/lint \
 	-e RUN_LOCAL=true \
 	-e LINTER_RULES_PATH=/ \
@@ -33,7 +33,7 @@ lint:
 	ghcr.io/super-linter/super-linter
 
 .PHONY: fmt
-fmt:
+fmt: cleanup
 	command -v textlint > /dev/null && npm list --global --depth=0 textlint-rule-terminology > /dev/null 2>&1 || sudo npm install --global textlint textlint-rule-terminology
 	textlint . --fix
 	command -v shfmt > /dev/null || curl -s "https://i.jpillora.com/mvdan/sh!!?as=shfmt" | bash
