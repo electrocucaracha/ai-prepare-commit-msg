@@ -37,7 +37,7 @@ lint: cleanup-node-modules
 	ghcr.io/super-linter/super-linter
 
 .PHONY: fmt
-fmt: cleanup-node-modules
+fmt: cleanup
 	command -v textlint > /dev/null && npm list --global --depth=0 textlint-rule-terminology > /dev/null 2>&1 || sudo npm install --global textlint textlint-rule-terminology
 	textlint . --fix
 	command -v shfmt > /dev/null || curl -s "https://i.jpillora.com/mvdan/sh!!?as=shfmt" | bash
