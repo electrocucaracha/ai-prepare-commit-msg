@@ -51,6 +51,7 @@ profile = "black"
 
 [tool.tox.env.test]
 description = "Run unit tests"
+base_python = ["3.12"]
 dependency_groups = [
     "test",
 ]
