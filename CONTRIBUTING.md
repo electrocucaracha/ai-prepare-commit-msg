@@ -103,6 +103,12 @@ defined in `pyproject.toml`:
 | `make fmt`      | Format Python, Markdown, YAML, and shell sources.                                |
 | `make lint`     | Run [Super-Linter](https://github.com/super-linter/super-linter) in a container. |
 
+The test targets run on Python 3.12, 3.13, and 3.14.
+Use `make -j3 test` to run the version-specific test jobs in parallel;
+for example, `make test-py312` runs only the Python 3.12 unit tests.
+Coverage and BDD targets support the same version-specific pattern.
+Mutation targets run serially because mutmut shares cache and report files.
+
 Pass extra arguments to pytest through tox, for example:
 
 ```bash

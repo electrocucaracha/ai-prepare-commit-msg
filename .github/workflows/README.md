@@ -43,6 +43,8 @@ markdownlint-enable MD013 -->
 
 - The repository currently defines five workflow files in this directory.
 - The linter and CI workflows are the main validation gates for branch and pull request checks.
+- The CI workflow runs each tox test environment on Python 3.12, 3.13, and 3.14,
+  matching the supported runtime range in `pyproject.toml`.
 - The update workflow is the maintenance automation path triggered by schedule or manual dispatch.
 - The release workflow is the manual release path for changelog generation and publishing.
 - The project keeps workflow automation centralized in this folder so build, docs, and release checks remain easy to audit and maintain.

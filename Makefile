@@ -8,18 +8,22 @@
 ##############################################################################
 
 DOCKER_CMD ?= $(shell which docker 2> /dev/null || which podman 2> /dev/null || echo docker)
+PYTHON_VERSIONS := 3.12 3.13 3.14
+TOX_TEST_ENVS := test coverage mutation bdd
 
-.PHONY: cleanup
-cleanup:
-	rm -rf node_modules
+.PHONY: cleanup cleanup-node-modules
+cleanup: cleanup-node-modules
 	rm -rf .tox/ .venv/
+
+cleanup-node-modules:
+	rm -rf node_modules
 
 # Biome has no JS/TS application sources to lint or format in this repo, and the
 # pre-commit hooks include a local "uv run prepare-commit" hook that the
 # super-linter container can't execute, so both validators are disabled
 # via the overrides below.
 .PHONY: lint
-lint: cleanup
+lint: cleanup-node-modules
 	$(DOCKER_CMD) run --rm -v $$(pwd):/tmp/lint \
 	-e RUN_LOCAL=true \
 	-e LINTER_RULES_PATH=/ \
@@ -33,7 +37,7 @@ lint: cleanup
 	ghcr.io/super-linter/super-linter
 
 .PHONY: fmt
-fmt: cleanup
+fmt: cleanup-node-modules
 	command -v textlint > /dev/null && npm list --global --depth=0 textlint-rule-terminology > /dev/null 2>&1 || sudo npm install --global textlint textlint-rule-terminology
 	textlint . --fix
 	command -v shfmt > /dev/null || curl -s "https://i.jpillora.com/mvdan/sh!!?as=shfmt" | bash
@@ -45,15 +49,28 @@ fmt: cleanup
 	command -v uvx > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uvx tox -e fmt
 
-.PHONY: test coverage mutation bdd
-test:
-	uvx tox -e test
+define tox-version-target
+.PHONY: $(1)-py$(subst .,,$(2))
+$(1)-py$(subst .,,$(2)):
+	uvx tox -e $(1) \
+		--override tox.env.$(1).base_python=python$(2) \
+		--override tox.env.$(1).package_env=.pkg-$(1)-py$(subst .,,$(2)) \
+		--override tox.env.$(1).env_dir=.tox/$(1)-py$(subst .,,$(2)) \
+		--override tox.env.$(1).set_env.COVERAGE_FILE=.coverage-$(1)-py$(subst .,,$(2)) \
+		--override tox.env.$(1).set_env.PYTEST_ADDOPTS=--cache-dir=.pytest_cache/$(1)-py$(subst .,,$(2))
+endef
 
-coverage:
-	uvx tox -e coverage
+$(foreach env,$(TOX_TEST_ENVS),$(foreach version,$(PYTHON_VERSIONS),$(eval $(call tox-version-target,$(env),$(version)))))
 
-mutation:
-	uvx tox -e mutation
+define tox-matrix-target
+.PHONY: $(1)
+$(1): $(foreach version,$(PYTHON_VERSIONS),$(1)-py$(subst .,,$(version)))
+endef
 
-bdd:
-	uvx tox -e bdd
+$(foreach env,test coverage bdd,$(eval $(call tox-matrix-target,$(env))))
+
+# Mutmut writes shared cache and report files, so run its Python versions serially.
+mutation-py313: mutation-py312
+mutation-py314: mutation-py313
+.PHONY: mutation
+mutation: mutation-py314

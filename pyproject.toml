@@ -1,7 +1,7 @@
 [project]
 name = "ai-prepare-commit"
 version = "0.0.1"
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.15"
 description = "AI assistant that generates git commit messages"
 dependencies = [
     "click",
@@ -44,14 +44,16 @@ fmt = [
 ]
 
 [tool.tox]
-env_list = ["3.12"]
+env_list = ["py"]
+
+[tool.tox.env_run_base]
+base_python = ["python"]
 
 [tool.isort]
 profile = "black"
 
 [tool.tox.env.test]
 description = "Run unit tests"
-base_python = ["3.12"]
 dependency_groups = [
     "test",
 ]
@@ -143,4 +145,3 @@ commands = [
         "format",
     ],
 ]
-
