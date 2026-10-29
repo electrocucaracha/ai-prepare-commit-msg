@@ -11,6 +11,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.9.3] - 2026-10-28
+
+### Changed
+
+- Updated dependencies to their latest versions, including aiohttp, black, charset_normalizer, and coverage, and raised the minimum required Python version to 3.12, potentially requiring migration steps to ensure compatibility. [c5d741d8](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c5d741d88007403ec1486db9525ca966b1208521)
+
+## [20.9.2] - 2026-10-28
+
+### Changed
+
+- Expanded test and coverage support to Python 3.12, 3.13, and 3.14, enabling parallel test execution and maintaining mutation tests' serial execution due to shared resources. [0bc4ecad](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/0bc4ecad3a8bfcffb4e5a37b745a4c8bb5709a4f)
+
+## [20.9.1] - 2026-10-28
+
+### Changed
+
+- The build process now automatically cleans up the environment before running lint and fmt tasks, preventing issues caused by leftover artifacts from previous runs. [790feb92](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/790feb923fa7362ff36590b3e2d86e558a8fc4c3)
+
+## [20.9.0] - 2026-10-28
+
+### Added
+
+- Enabled unit tests to run consistently with the desired Python 3.12 interpreter version across development and CI environments. [8cfc9209](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/8cfc920915ab92b1a3aa2ef16b4ca7ce1a3c5ed1)
+
+## [20.8.1] - 2026-10-28
+
+### Changed
+
+- Updated dependencies in uv.lock to the latest versions, including boto3, botocore, headroom-ai, hf-xet, litellm, mutmut, onnxruntime, platformdirs, pydantic-settings, pytest, and ruff, ensuring CI, linting, and local environments remain current. [9e9e6e0c](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/9e9e6e0c6bf19605c24bb3c154ffe1796809e805)
+
+## [20.8.0] - 2026-10-28
+
+### Added
+
+- Enabled optional, content-free OpenTelemetry metrics export for the pre-commit hook, allowing detailed tracking of AI usage and estimated time and cost savings, with non-blank endpoints and full OTLP/HTTP URLs required to activate export and telemetry disabled by default. [c3e579e6](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/c3e579e652d3b8059a33628118bbaed64b7e8f08)
+
+## [20.7.0] - 2026-10-25
+
+### Added
+
+- Enabled explicit support for Python 3.11, automated formatting, and ONNX model inference support, while updating dependencies to include filelock 4.2.1 and higher Python versions, and enhancing project compatibility and automation. [06fd315a](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/06fd315a7bb5aa910f431317d64ed0d00b492b1b)
+
 ## [20.6.1] - 2026-10-25
 
 ### Changed
