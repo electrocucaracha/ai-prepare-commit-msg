@@ -9,19 +9,20 @@ nav_order: 5
 Use this guide to send hook usage and savings metrics to an
 OpenTelemetry Protocol over HTTP (OTLP/HTTP) receiver.
 Telemetry is optional and disabled by default.
+Telemetry support is available starting with version `20.8.0`.
 
 ![Telemetry delivery from the AI commit-message hook to Rotel, with separate verification and reporting configurations](../assets/diagrams/telemetry-delivery.png)
 
 Source: [Editable draw.io diagram](../assets/diagrams/telemetry-delivery.drawio).
 
 The local verification setup prints and discards metrics.
-For historical reports,
-configure Rotel to forward them to a metrics backend instead.
+To keep historical reports,
+configure Rotel to forward metrics to a backend.
 
 ## Prerequisites
 
 - An [installed hook](how-to-install.md) and a configured model.
-- A version of the package that includes telemetry support.
+- Version `20.8.0` or later of the package.
 - An OTLP/HTTP metrics receiver, such as [Rotel](https://github.com/rotel-dev/rotel).
 - Docker, only if you choose the container option below.
 
@@ -84,53 +85,46 @@ remains an alternative if you already operate it
 or need components outside Rotel's supported receivers, processors, and exporters.
 The hook uses the same endpoint variable with either collector.
 
-## 2. Use the standard hook installation
+## 2. Install the hook
 
-OpenTelemetry dependencies are included in the standard package installation.
-For `pre-commit`,
-keep your existing hook entry unchanged.
-No `entry` override, dependency overrides, or second hook are needed.
-The model, gateway credentials, and telemetry settings are inherited
-from the environment that launches Git.
-The following example keeps the standard hook structure;
-replace `<release-with-telemetry>` with a release tag that includes telemetry support:
+The standard package includes the OpenTelemetry dependencies.
+Keep your existing `pre-commit` hook entry unchanged;
+no entry or dependency overrides are needed.
+Git passes the model, credentials, and telemetry settings to the hook
+through its environment.
+Use `v20.8.0` or a later release tag:
 
 ```yaml
 default_install_hook_types:
   - prepare-commit-msg
 repos:
   - repo: https://github.com/electrocucaracha/ai-prepare-commit-msg
-    rev: <release-with-telemetry>
+    rev: v20.8.0
     hooks:
       - id: ai-prepare-commit
         stages:
           - prepare-commit-msg
 ```
 
-If the hook is already installed,
-no reinstall is needed when changing environment variables.
 For a new installation,
-merge this configuration with any existing hooks and install the Git hook:
+merge the configuration with your existing hooks and install the Git hook:
 
 ```bash
 uvx pre-commit install --hook-type prepare-commit-msg
 ```
 
-Pre-commit installs the package and its dependencies in its isolated environment.
-Installing these dependencies alone does not enable telemetry;
-only a non-empty `AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT` enables collection and export.
-If it is unset or blank,
-the hook runs normally without initializing or exporting telemetry,
-even when the other telemetry variables are set.
-If your current pin, such as `v20.3.7`, predates telemetry support,
-update only `rev` to a release that includes it;
-setting environment variables cannot add the feature to an older release.
+Pre-commit installs the package in an isolated environment.
+Telemetry is enabled only by a non-empty
+`AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT`;
+the other variables alone do not enable it.
+If your pinned release predates `v20.8.0`,
+update `rev` to `v20.8.0` or later.
 
 ### Environment variables
 
-The hook's metrics configuration consists of four variables.
-LiteLLM request tracing has separate settings,
-described in [Configure LiteLLM request telemetry](#6-configure-litellm-request-telemetry).
+Configure these four variables in the environment that launches Git.
+The LiteLLM SDK uses the same endpoint,
+as described in [SDK request measurements](#sdk-request-measurements).
 
 | Variable                                 | Required                                     | Where to configure it                                                                                                            |
 | ---------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -141,84 +135,44 @@ described in [Configure LiteLLM request telemetry](#6-configure-litellm-request-
 
 For an authenticated receiver using a private CA,
 set the optional variables before launching Git.
-In this example,
-`TELEMETRY_TOKEN` is supplied by your secret manager
-and the certificate path must point to your actual CA file:
+Supply the token through a secret manager
+and use the path to your actual CA file:
 
 ```bash
 export OTEL_EXPORTER_OTLP_METRICS_HEADERS="Authorization=Bearer ${TELEMETRY_TOKEN}"
 export OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE="$HOME/.config/commit-telemetry/ca.pem"
 ```
 
-Neither optional variable is needed for the local Rotel verification receiver.
-Keep your existing exports for `LITELLM_PROXY_MODEL`,
-`LITELLM_PROXY_API_BASE`, `LITELLM_PROXY_API_KEY`,
-`LITELLM_EXTRA_HEADERS_JSON`, and `AI_PREPARE_COMMIT_AUTO_APPROVE` as they are.
-Any provider-specific aliases required by your gateway remain unchanged.
-For example,
-add optional telemetry exports alongside your existing configuration in `~/.zshrc`,
-then open a new terminal or reload that configuration before launching Git.
-Do not put model-provider keys or telemetry authentication headers in committed YAML.
+The local Rotel receiver needs neither optional variable.
+Keep your existing model and provider settings unchanged.
+Add telemetry exports to the shell configuration used to launch Git,
+then reload it or open a new terminal.
 Pre-commit inherits exported variables;
-it does not load `~/.zshrc` or a `.env` file itself,
-and it does not support an `env:` key in hook configuration.
+it does not load `~/.zshrc` or `.env` files,
+and hook configuration has no `env:` key.
+Never commit provider keys or telemetry authentication headers.
 See the [configuration reference](../references/configuration.md#core-variables)
 for provider-specific settings and other optional hook variables.
 
-The Python pre-commit hook resolves dependencies from the package metadata;
-it does not enforce this project's `uv.lock`.
-Dependency constraints and the lockfile are maintained in this project,
-not in each consuming repository's hook configuration.
-
-### Standalone installations
-
-For a source checkout using `uv`,
-install the locked dependencies:
-
-```bash
-uv sync --locked
-```
-
-To run generation directly after configuring the endpoint,
-use `uv run --locked prepare-commit --model "$LITELLM_PROXY_MODEL"`.
-This command runs generation immediately if the checkout has staged changes.
-
-For a package installed with `pip`,
-use the standard installation in the environment that runs `prepare-commit`:
-
-```bash
-pip install ai-prepare-commit
-```
-
 ## 3. Enable export
 
-Export the endpoint in the environment that launches Git or the hook.
-Your pre-commit configuration remains unchanged.
-For the local receiver above:
+Set the endpoint in the environment that launches Git.
+For the local receiver:
 
 ```bash
 export AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT=http://127.0.0.1:4318/v1/metrics
 ```
 
-The URL includes the full metrics path;
+Use the full metrics URL;
 the hook does not append `/v1/metrics`.
-Setting `OTEL_EXPORTER_OTLP_ENDPOINT` alone does not enable telemetry.
+`OTEL_EXPORTER_OTLP_ENDPOINT` alone does not enable telemetry.
 
 ![Telemetry opt-in flow: shell exports pass through Git and the unchanged pre-commit hook; an unset, blank, or invalid endpoint skips telemetry](../assets/diagrams/telemetry-opt-in.png)
 
 Source: [Editable draw.io diagram](../assets/diagrams/telemetry-opt-in.drawio).
 
-Both paths use the same hook configuration and normal generation flow.
-Enabling telemetry adds measurements and best-effort export;
-it does not change confirmation or approval behavior.
-
-For a receiver that requires authentication,
-set `OTEL_EXPORTER_OTLP_METRICS_HEADERS`
-using the header names and values supplied by your receiver.
-Do not embed credentials in the endpoint URL.
-For a private certificate authority,
-set `OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE` to its trusted CA certificate file.
-TLS certificate verification remains enabled.
+Telemetry adds best-effort measurements without changing
+confirmation or approval behavior.
 
 ## 4. Set a time-savings baseline
 
@@ -254,148 +208,96 @@ and metric names such as `commit_assistant.invocations` in Rotel's debug output.
 
 Confirm that the attributes match the action you took:
 an explicitly approved message has `outcome=written` and `approval=accepted`;
-an auto-approved message has `approval=auto`;
+an auto-approved message has `outcome=written` and `approval=auto`;
 a rejected message has `outcome=rejected` and `approval=rejected`.
+If the commit triggered an AI request,
+also look for `commit_assistant.generation.requests`.
+Summarization metrics appear only when an oversized diff needs summary requests.
+Token metrics require provider-reported usage.
+Cost metrics also require LiteLLM pricing information.
 
-## 6. Configure LiteLLM request telemetry
+### Aspire Dashboard
 
-This project uses the LiteLLM Python SDK inside the hook process.
-It measures `litellm.completion()` calls locally;
-you do not need a LiteLLM server, server configuration,
-or access to a gateway administrator to collect these measurements.
-
-### Enable SDK request measurements
-
-Keep your existing model selection, credentials, and pre-commit hook entry unchanged.
-The same endpoint variable used for hook metrics also enables SDK request measurements:
+Aspire Dashboard can receive OTLP/HTTP metrics and display them without an
+additional metrics backend.
+For a local container that maps host port `4318` to OTLP/HTTP port `18890`,
+set the hook endpoint to:
 
 ```bash
 export AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT=http://127.0.0.1:4318/v1/metrics
 ```
 
-Export it in the shell that launches Git,
-or add it alongside your existing exports in `~/.zshrc`.
-The SDK measurements share the hook's OTLP/HTTP metrics export,
-its `service.name=ai-prepare-commit-msg`,
-and the optional authentication and CA variables listed above.
-There is no second endpoint or separate LiteLLM telemetry service to configure.
-If the endpoint is unset or blank,
-the SDK calls still run normally but this integration does not collect or export metrics.
+Open the dashboard UI,
+select the `ai-prepare-commit-msg` resource,
+then choose a metric such as `commit_assistant.invocations` or
+`commit_assistant.time_saved_estimated`.
+Use the metrics to answer practical workflow questions:
 
-### What the SDK integration records
+- **Is the hook being used, and are suggestions kept?**
+  Use `invocations`, grouped by `outcome` and `approval`,
+  to check adoption and acceptance signals.
+  Rejection or auto-approval alone does not measure suggestion quality.
+- **Is AI usage or estimated spend changing?**
+  Compare generation and summarization input/output tokens,
+  `cost_estimated`, and `cost_priced_requests`
+  before changing models or expanding use.
+  Cost is estimated,
+  and unpriced responses are excluded.
+- **Does prompt compression reduce input usage?**
+  Compare `compression.tokens_before`, `compression.tokens_saved`,
+  and `compression.cost_saved_estimated`.
+  The cost figure is estimated gross input savings
+  and excludes summarization cost.
+- **Is the workflow saving developer time?**
+  Compare `time_saved_estimated` for written suggestions
+  with `duration` and the manual baseline.
+  Calibrate the baseline against your workflow;
+  this is not measured productivity.
 
-The hook wraps its SDK calls with `telemetry.request()`.
-Both stages contribute to the same per-invocation metrics:
+These are decision signals, not proof of commit quality, realized cost savings,
+or productivity gains.
+Use a persistent metrics backend for comparisons over time;
+the Aspire Dashboard container stores data only in memory.
 
-| SDK stage         | Calls covered                                                                                | Metric prefix                      |
-| ----------------- | -------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Commit generation | Each SDK request for a generated message, including repeated attempts after empty responses. | `commit_assistant.generation.*`    |
-| Summarization     | SDK calls for map-chunk summaries and reduce rounds when a diff is oversized.                | `commit_assistant.summarization.*` |
+The screenshots show sample data from a local dashboard,
+not a performance benchmark:
 
-For each stage,
-the integration counts attempted SDK calls,
-records failures that raise exceptions,
-and measures total elapsed request time.
+![Aspire Dashboard showing an ai-prepare-commit-msg invocation metric](../assets/telemetry-aspire-invocations.png)
+
+![Aspire Dashboard showing estimated time saved by ai-prepare-commit-msg](../assets/telemetry-aspire-time-saved.png)
+
+Keep the OTLP receiver bound to a trusted interface;
+do not expose an unsecured dashboard endpoint to an untrusted network.
+
+## SDK request measurements
+
+For LiteLLM SDK requests made during commit generation and summarization,
+telemetry records the number of SDK calls, failures, and elapsed time.
 When a response includes usage,
 it records provider-reported input and output tokens.
-When LiteLLM can price that response,
-it contributes to `commit_assistant.cost_estimated`
-and increments `commit_assistant.cost_priced_requests`.
-Headroom compression measurements contribute to the separate compression-savings metrics.
+When LiteLLM can price a response,
+it records the estimated cost and counts that response as priced.
 
-One recorded request means one invocation of `litellm.completion()`,
+Each recorded request represents one call to `litellm.completion()`,
 not necessarily one upstream network attempt.
-Retries or fallback routing internal to LiteLLM or your provider
-are not separately counted by this wrapper.
-The hook's `retries` metric counts its own repeated generation attempts after empty responses.
-Missing usage or pricing remains unavailable data,
-not evidence that a request consumed no tokens or incurred no cost.
-
-Use the SDK measurements and hook outcomes together:
-
-| Question                                      | Measurements                                                                                                        |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| How much AI work did a commit attempt use?    | Generation and summarization request and token totals, including rejected suggestions and retries.                  |
-| What was the estimated AI cost?               | `cost_estimated`, with `cost_priced_requests` indicating pricing coverage. Both use the `commit_assistant.` prefix. |
-| Did that work produce an accepted suggestion? | `invocations` grouped by `outcome` and `approval`.                                                                  |
-| What did compression avoid?                   | `compression.tokens_saved` and `compression.cost_saved_estimated`, distinct from total AI consumption.              |
-
-The SDK token and cost values are already included in the hook's totals.
-Do not add a second copy of the same request's measurements from another integration
-when calculating consumption or spend.
-
-### Verify the SDK measurements with Rotel
-
-Use the metrics-only Rotel command in [Prepare a receiver](#1-prepare-a-receiver).
-After an intended commit that makes an SDK request,
-look for `commit_assistant.generation.requests` in the receiver output.
-Token and cost metrics appear when the provider supplies usage
-and LiteLLM has pricing metadata.
-Summarization metrics appear only when the oversized-diff path makes summary requests.
-An invocation with no staged changes can produce hook metrics without any SDK request metrics.
-
-### Native LiteLLM callbacks and traces
-
-The integration described here is the project's own SDK instrumentation,
-not LiteLLM's built-in OpenTelemetry callback.
-The hook does not currently register `litellm.callbacks = ["otel"]`,
-emit native `gen_ai.*` metrics,
-or create and propagate tracing spans.
-Setting `OTEL_EXPORTER`, `OTEL_ENDPOINT`, or `OTEL_SERVICE_NAME`
-does not enable those features in this hook.
-Use the documented `AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT` setting
-for the SDK measurements supported by this implementation.
-
-Native LiteLLM tracing would require additional SDK initialization,
-callback lifecycle and shutdown handling,
-and a separate review of which request attributes can leave the process.
-It is not enabled by changing the pre-commit configuration.
-See [LiteLLM's OpenTelemetry SDK integration](https://docs.litellm.ai/docs/observability/opentelemetry_integration)
-for the library's separate callback API.
-
-The current integration extracts numeric usage and pricing information;
-it does not export SDK prompts, staged diffs, generated messages,
-provider URLs, or provider credentials.
-These content-free guarantees do not extend to independently installed
-LiteLLM callbacks or other third-party instrumentation.
-
-## Interpret usage and savings
-
-Use the following measurements when building reports:
-
-| Goal                         | Measurements and filters                                                                                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Track frequency              | Sum `commit_assistant.invocations` over your reporting period. Separate `no_changes` and `error` outcomes from written suggestions.                        |
-| Compare commit types         | Group written invocations by `commit.type`, such as `feat`, `fix`, or `docs`.                                                                              |
-| Track explicit acceptance    | Compare `approval=accepted` with `approval=rejected`. Keep `approval=auto` separate.                                                                       |
-| Track AI consumption         | Include generation and summarization input/output tokens, even for rejected suggestions and retries.                                                       |
-| Track compression savings    | Sum `compression.tokens_saved` and compare it with `compression.tokens_before`. Both names have the `commit_assistant.` prefix.                            |
-| Track AI spend               | Sum `commit_assistant.cost_estimated`. Use `cost_priced_requests` to identify how many responses contributed to that estimate.                             |
-| Track avoided input cost     | Sum `commit_assistant.compression.cost_saved_estimated`. This is a gross compression estimate, not net savings after summarization costs.                  |
-| Track estimated time savings | Sum `commit_assistant.time_saved_estimated` for written suggestions, separating explicit and automatic approvals. Divide seconds by 3,600 to report hours. |
-
-Missing usage or pricing measurements mean unavailable data,
-not zero consumption or free requests.
-Pricing estimates depend on LiteLLM metadata
-and do not account for negotiated prices or provider-specific cache discounts.
-Decision-service consumption is not included.
-
-Treat time savings as an estimate rather than measured developer productivity.
-The hook does not observe later edits or review outside its confirmation prompt.
-A written suggestion does not prove that the Git commit ultimately succeeded.
-See the [telemetry reference](../references/configuration.md#optional-telemetry)
-for the complete metric list and outcome definitions.
+Retries or fallback routing inside LiteLLM or the provider
+are not counted separately.
+Missing usage or pricing means the data is unavailable,
+not that the request used zero tokens or incurred no cost.
+These SDK measurements are included in the hook's totals;
+do not add them again when reporting.
 
 ## Privacy and delivery limits
 
-Hook metric payloads contain numeric measurements,
+**The hook does not collect or export sensitive commit or user data
+in its `commit_assistant.*` metrics.**
+It exports numeric measurements,
 fixed outcome and approval categories,
 and allowlisted Conventional Commit types.
-They exclude commit text, scopes, diffs, paths, repository identifiers,
-model names, user identities, and provider credentials.
-These guarantees apply to `commit_assistant.*` metrics,
-not to independently enabled LiteLLM traces or logs.
-The receiver still sees your network address
+It does not export commit text, scopes, diffs, file paths,
+repository identifiers, model names, user identities, or provider credentials.
+These guarantees do not cover independently enabled LiteLLM traces or logs.
+The receiver can still see your network address
 and any authentication headers you configure.
 
 Export is best-effort,
@@ -406,14 +308,14 @@ an unavailable receiver can therefore leave gaps in your reports.
 
 ## Troubleshoot missing metrics
 
-| Symptom                                               | Action                                                                                                                                                                                         |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nothing reaches the receiver                          | Confirm that `AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT` is set in the process launching Git. A graphical Git client might not inherit your shell's environment.                                    |
-| The hook reports that telemetry export is unavailable | Confirm that the pinned hook release includes telemetry support, then check receiver reachability, authentication, and TLS configuration.                                                      |
-| The receiver returns a not-found or protocol error    | Use the full binary OTLP/HTTP metrics URL, commonly ending in `/v1/metrics`. Do not use a dashboard URL or an OTLP/gRPC endpoint.                                                              |
-| Token or cost measurements are absent                 | Check whether your provider returns usage and whether LiteLLM has pricing metadata for the model.                                                                                              |
-| Time-savings measurements are absent                  | Check for a `written` outcome and a positive, finite manual-writing baseline. Rejected, oversized, no-change, and failed runs do not report time savings.                                      |
-| Hook metrics arrive but SDK request metrics do not    | Confirm that staged changes actually trigger a generation request. Missing usage or pricing can omit token or cost measurements; native LiteLLM traces are not enabled by this implementation. |
+| Symptom                                               | Action                                                                                                                                                      |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing reaches the receiver                          | Confirm that `AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT` is set in the process launching Git. A graphical Git client might not inherit your shell's environment. |
+| The hook reports that telemetry export is unavailable | Confirm that the pinned hook release includes telemetry support, then check receiver reachability, authentication, and TLS configuration.                   |
+| The receiver returns a not-found or protocol error    | Use the full binary OTLP/HTTP metrics URL, commonly ending in `/v1/metrics`. Do not use a dashboard URL or an OTLP/gRPC endpoint.                           |
+| Token or cost measurements are absent                 | Check whether your provider returns usage and whether LiteLLM has pricing metadata for the model.                                                           |
+| Time-savings measurements are absent                  | Confirm the outcome is `written` and the manual-writing baseline is positive.                                                                               |
+| Hook metrics arrive but SDK request metrics do not    | Confirm staged changes triggered a generation request. This integration does not enable native LiteLLM traces.                                              |
 
 ## Disable telemetry
 
@@ -423,9 +325,8 @@ Unset the endpoint in the environment that launches the hook:
 unset AI_PREPARE_COMMIT_TELEMETRY_ENDPOINT
 ```
 
-If you added an endpoint export to `~/.zshrc` or another startup file,
-remove it there too so new terminals do not re-enable telemetry.
-No change to the pre-commit hook entry is needed.
+Remove the export from your shell startup file too,
+if present, so new terminals do not re-enable telemetry.
 
 This disables both hook-level and SDK request measurements from this integration.
 It does not change model-provider credentials
