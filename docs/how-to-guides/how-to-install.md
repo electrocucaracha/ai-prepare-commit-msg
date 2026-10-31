@@ -76,6 +76,30 @@ Set `AI_PREPARE_COMMIT_AUTO_APPROVE=1`
 in that environment to skip the prompt and write the message directly.
 See the [Configuration reference](../references/configuration.md).
 
+## Troubleshooting
+
+### Slow installation or execution after upgrading
+
+The hook now requires Python 3.12 or later,
+and the default pre-commit configuration uses Python 3.12.
+When you upgrade from a version that used an older Python interpreter,
+pre-commit must create a new hook environment and reinstall its dependencies.
+This can delay your first commit after upgrading.
+
+Make Python 3.12 available on your `PATH`,
+then run this command from your repository before committing:
+
+```bash
+uvx pre-commit install --install-hooks --hook-type prepare-commit-msg
+```
+
+The command installs the Git hook and prepares its Python environment immediately.
+Wait for installation to finish before committing.
+Subsequent commits reuse the environment,
+so you do not need to reinstall before every commit.
+This moves environment setup out of the commit workflow;
+it does not reduce AI message generation time.
+
 ## Related
 
 - [Configuration reference](../references/configuration.md)
