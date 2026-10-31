@@ -11,6 +11,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.11.0] - 2026-10-30
+
+### Added
+
+- Clarified the installation and upgrade process for pre-commit by explicitly requiring Python 3.12, which enables users to prepare their environment and avoid potential delays. [99ce1c52](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/99ce1c520574cedcd9541d84d0b8c34c0460f859)
+
+## [20.10.6] - 2026-10-30
+
+### Changed
+
+- Enabled the uv sync command to include all optional dependency groups by default and updated the hf-xet package to version 1.8.0, bringing the lockfile and environment up to date with the latest features and fixes. [5b6def99](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/5b6def99f2cc9e1c96c817e0fad08e4e3e164602)
+
+## [20.10.5] - 2026-10-29
+
+### Changed
+
+- Updated dependencies in the uv.lock file to their latest versions, including boto3, botocore, huggingface-hub, opentelemetry-api, and pydantic, bringing in upstream bugfixes and features from the latest releases without any code changes or impact on the project's behavior or API. [684c2f93](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/684c2f9373ff6e8b5d6154da8356564e951264d9)
+
+## [20.10.4] - 2026-10-29
+
+### Changed
+
+- clarified the telemetry guide with an Aspire Dashboard example that demonstrates in-memory OTLP/HTTP metrics consumption, providing workflow-oriented metric usage tips and including screenshots of invocation and time-savings visualizations. [20394d59](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/20394d59690510ba352b51f2f2fc970fae7dfc29)
+
+## [20.10.3] - 2026-10-29
+
+### Changed
+
+- Updated the project's supported Python version to ensure compatibility with newer environments by updating the prepare-commit hook's language version from python3.11 to python3.12. [076fd93e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/076fd93e73136a811845e061bdd1f8127b670450)
+
+## [20.10.2] - 2026-10-29
+
+### Fixed
+
+- Stabilized mypy linter behavior by including opentelemetry in the ignore_missing_imports list, preventing potential errors in environments without this dependency installed. [93b59153](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/93b59153b5c3ff0626086b829ccf3e313d3b92da)
+
+## [20.10.1] - 2026-10-29
+
+### Changed
+
+- Stabilized the fmt target to consistently use the cleanup procedure as other commands, ensuring task dependency consistency. [9850830e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/9850830e03384ec5b799567ccd15a15d1570fe3f)
+
+## [20.10.0] - 2026-10-28
+
+### Added
+
+- Modernized Python version support to include versions 3.12, 3.13, and 3.14, and updated dependencies to their latest versions, including aiohttp, black, charset_normalizer, and coverage, potentially requiring migration steps to ensure compatibility. [a35693a2](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/a35693a2b4a61139288241405a1677e7aa18c82c)
+
 ## [20.9.3] - 2026-10-28
 
 ### Changed
