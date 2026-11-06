@@ -5,8 +5,10 @@ has_children: true
 ---
 
 Goal-oriented recipes for common tasks with `ai-prepare-commit-msg`.
-Each guide assumes you have already installed the hook;
-see [How to install](how-to-install.md) if you have not.
+Install the Git hook for hook-based workflows;
+for manual Vim use without a hook,
+configure the shortcut in [How to install](how-to-install.md)
+and follow the Vim usage guide.
 
 | Guide                                                           | Use when you need to…                                |
 | --------------------------------------------------------------- | ---------------------------------------------------- |
@@ -15,3 +17,4 @@ see [How to install](how-to-install.md) if you have not.
 | [Choose commit types with a decision model](decision-models.md) | Select a Conventional Commit type with Jev or Ollaya |
 | [Add a custom LLM provider](custom-providers.md)                | Route model calls through your own backend           |
 | [Track usage and AI savings](telemetry.md)                      | Export telemetry and interpret usage and savings     |
+| [Use Vim without a Git hook](vim-integration.md)                | Generate a message from a Vim commit buffer          |
