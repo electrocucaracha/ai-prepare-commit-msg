@@ -6,6 +6,8 @@
 # which accompanies this distribution, and is available at
 # http://www.apache.org/licenses/LICENSE-2.0
 ##############################################################################
+default_language_version:
+  python: python3.14
 default_install_hook_types:
   - pre-commit
   - prepare-commit-msg
