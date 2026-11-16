@@ -11,6 +11,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.14.3] - 2026-11-16
+
+### Changed
+
+- Updated GitHub workflows and dependencies to their latest versions, bumping the `electrocucaracha/gh-workflows` action to version 14.0.0 and `isort` to version 10.0.0b3 in the pre-commit configuration, to maintain compatibility and keep workflows current with upstream changes. [6d99d5d2](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/6d99d5d2f7a1bf3219e761084b96bb6f2e6d550e)
+
+## [20.14.2] - 2026-11-13
+
+### Changed
+
+- Updated dependencies in GitHub Actions workflows to improve reliability and functionality. [970f10a5](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/970f10a5f5dd1597f51f1776c4c1157c3a628ba7)
+
+## [20.14.1] - 2026-11-06
+
+### Fixed
+
+- The `make fmt` trap in the `ci/update_versions.sh` script now produces detailed tracing output only when debugging is enabled, improving log clarity. [3561c6c7](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/3561c6c77f0a4723fd0271a982259b11cec75fa8)
+
+## [20.14.0] - 2026-11-06
+
+### Added
+
+- Centralized code review responsibility by introducing a CODEOWNERS file that automatically requests @electrocucaracha for review on all pull requests. [2a0f006f](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/2a0f006f4eb01c0b550e2e60761c483bb5d7247f)
+
+## [20.13.2] - 2026-11-06
+
+### Changed
+
+- Updated dependencies in GitHub Actions workflows to the latest versions, ensuring continued secure and correct functionality. [818a52b9](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/818a52b9d0e1c31db227f9887462c4c5d74820d9)
+
+## [20.13.1] - 2026-11-05
+
+### Changed
+
+- Enabled users who prefer manual or editor-based commit message generation to create and test commit messages directly from the commit buffer without relying on a Git hook. [319d968f](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/319d968f4997900a6d090e147c7acd8b23bafc18)
+
+## [20.13.0] - 2026-11-05
+
+### Added
+
+- Enabled consistent pre-commit environments across developers and CI systems by setting a default Python version of 3.14. [4bc68185](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/4bc68185775fa99e52562c7a796e52efc2181202)
+
+## [20.12.0] - 2026-10-30
+
+### Added
+
+- Updated the changelog to provide users with a comprehensive release history, including key additions, dependency updates, and clarified procedures for better project transparency and upgrade planning. [1070b26e](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/1070b26e39b68691444d6198becf61a029411bbe)
+
 ## [20.11.0] - 2026-10-30
 
 ### Added
