@@ -2,6 +2,8 @@
      in the Keep a Changelog format, so MD024 is disabled for this file. -->
 <!-- Markdownlint-disable MD024 -->
 
+<!-- markdown-link-check-disable -->
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -10,6 +12,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [20.16.0] - 2026-11-20
+
+### Added
+
+- Enabled more reliable and targeted Markdown link checking by introducing a custom configuration file that ignores known problematic patterns and enables retries for HTTP 429 errors. [da5d0327](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/da5d03271e8f54fb926dc155639a6336928dc62f)
+
+## [20.15.1] - 2026-11-16
+
+### Changed
+
+- Updated the Apache 2.0 license badge in the readme to link directly to the official Apache license page at apache.org, ensuring users access the correct license text. [bf026e34](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/bf026e34401e96313a915985480ff92c417e3e3d)
+
+## [20.15.0] - 2026-11-16
+
+### Added
+
+- Enabled detailed changelog entries for versions 20.12.0 through 20.14.3, providing users with key information about recent updates, enhancements, and dependency updates, and improving project transparency. [fc623768](https://github.com/electrocucaracha/ai-prepare-commit-msg/commit/fc623768a180942295f96c38fc92b8d6787db771)
 
 ## [20.14.3] - 2026-11-16
 
